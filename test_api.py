@@ -7,7 +7,7 @@ import httpx
 import time
 import json
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8888"
 
 async def test_api():
     """Test the video downloader API"""

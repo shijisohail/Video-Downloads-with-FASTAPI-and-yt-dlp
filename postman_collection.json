@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Video Downloader API v2.0",
-    "description": "API for downloading videos with quality selection and download type options",
+    "description": "Enhanced API for downloading videos with metadata extraction, quality selection, and multi-platform support",
     "version": "2.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -76,7 +76,7 @@
           "status": "OK",
           "code": 200,
           "header": [],
-          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"2.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
+          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"1.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
         }
       ]
     },
@@ -108,7 +108,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"url\": \"https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+          "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/download",
@@ -212,6 +212,55 @@
       }
     },
     {
+      "name": "Download TikTok Video",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"url\": \"https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/download",
+          "host": ["{{base_url}}"],
+          "path": ["download"]
+        },
+        "description": "Download a TikTok video in 720p quality"
+      },
+      "response": [
+        {
+          "name": "Success - TikTok",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/download",
+              "host": ["{{base_url}}"],
+              "path": ["download"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"task_id\": \"bcfeffc4-32b0-43ca-b120-78aa577f97c8\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (VideoQuality.HIGH) for: https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
+        }
+      ]
+    },
+    {
       "name": "Check Download Status",
       "request": {
         "method": "GET",
@@ -241,6 +290,22 @@
           "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"processing\",\n    \"message\": \"Downloading video...\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"filename\": null,\n    \"total_files\": null,\n    \"completed_files\": null\n}"
         },
         {
+          "name": "Failed",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["status", "{{task_id}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"task_id\": \"119d4738-1aa5-4090-81b8-016a43435bfd\",\n    \"status\": \"failed\",\n    \"message\": \"This video is private or unavailable. Please check if the video is publicly accessible.\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"filename\": null,\n    \"total_files\": null,\n    \"completed_files\": null\n}"
+        },
+        {
           "name": "Completed",
           "originalRequest": {
             "method": "GET",
@@ -254,7 +319,7 @@
           "status": "OK",
           "code": 200,
           "header": [],
-          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully: Eminem - Love The Way You Lie ft. Rihanna\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/download/f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"filename\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076_Eminem - Love The Way You Lie ft. Rihanna.mp4\",\n    \"total_files\": 1,\n    \"completed_files\": 1\n}"
+          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/download/f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"filename\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076_Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster).mp4\",\n    \"total_files\": null,\n    \"completed_files\": null,\n    \"title\": \"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"url\": \"https://rr3---sn-ab5sznly.googlevideo.com/videoplayback?expire=1754012202...\",\n    \"duration\": 213,\n    \"format\": \"mp4\",\n    \"thumbnail\": \"https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp\"\n}"
         }
       ]
     },

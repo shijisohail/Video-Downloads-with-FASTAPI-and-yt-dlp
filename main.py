@@ -171,6 +171,11 @@ class DownloadStatus(BaseModel):
     filename: Optional[str] = None
     total_files: Optional[int] = None
     completed_files: Optional[int] = None
+    title: Optional[str] = None
+    url: Optional[str] = None
+    duration: Optional[int] = None
+    format: Optional[str] = None
+    thumbnail: Optional[str] = None
 
 def get_video_info(url: str):
     """Get video information without downloading"""
@@ -218,7 +223,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             'quiet': True,
             'no_warnings': True,
             'extractflat': download_type != 'single',  # Flat playlist/album extraction for non-single
-            'writethumbnail': False,
+            'writethumbnail': True,
             'prefer_ffmpeg': True,
             # Additional options for better compatibility
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -249,6 +254,9 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 # Extract video information
                 video_title = info.get('title', 'Unknown Video')
                 video_duration = info.get('duration', 0)
+                video_url = info.get('url') or info.get('webpage_url')
+                video_format = info.get('ext', 'mp4')
+                video_thumbnail = info.get('thumbnail')
                 uploader = info.get('uploader', 'Unknown')
 
                 # Update status to completed with video info
@@ -257,12 +265,11 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                     'message': f'Video downloaded successfully: {video_title}',
                     'download_url': f"/download/{task_id}",
                     'filename': filename,
-                    'video_info': {
-                        'title': video_title,
-                        'duration': video_duration,
-                        'uploader': uploader,
-                        'original_url': url
-                    }
+                    'title': video_title,
+                    'url': video_url,
+                    'duration': video_duration,
+                    'format': video_format,
+                    'thumbnail': video_thumbnail
                 })
 
     except Exception as e:
@@ -298,7 +305,6 @@ async def initiate_download(request: VideoDownloadRequest, background_tasks: Bac
         'quality': request.quality.value,
         'download_url': None,
         'filename': None,
-        'video_info': None,
         'total_files': None,
         'completed_files': None
     }
@@ -322,13 +328,28 @@ async def initiate_download(request: VideoDownloadRequest, background_tasks: Bac
         quality=request.quality.value
     )
 
-@app.get("/status/{task_id}", response_model=DownloadStatus)
+@app.get("/status/{task_id}")
 async def get_download_status(task_id: str):
     """Get download status for a specific task"""
     if task_id not in download_status:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    return DownloadStatus(**download_status[task_id])
+    status_data = download_status[task_id].copy()
+    
+    # Only include metadata fields if download is completed
+    if status_data.get('status') != 'completed':
+        # Remove metadata fields for non-completed downloads
+        metadata_fields = ['title', 'url', 'duration', 'format', 'thumbnail']
+        for field in metadata_fields:
+            status_data.pop(field, None)
+        
+        # Create response model excluding metadata fields
+        exclude_fields = {'title', 'url', 'duration', 'format', 'thumbnail'}
+        response = DownloadStatus(**status_data)
+        return JSONResponse(content=response.model_dump(exclude=exclude_fields))
+    else:
+        # Include all fields for completed downloads
+        return DownloadStatus(**status_data)
 
 @app.get("/download/{task_id}")
 async def download_file(task_id: str):

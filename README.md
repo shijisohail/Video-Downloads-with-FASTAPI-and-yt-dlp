@@ -1,6 +1,6 @@
 # Video Downloader API
 
-A FastAPI-based service that downloads videos from URLs and provides downloadable links. Perfect for mobile applications that need to download videos from various platforms.
+A FastAPI-based service that downloads videos from URLs and provides downloadable links with comprehensive metadata extraction. Perfect for mobile applications that need to download videos from various platforms.
 
 ## Features
 
@@ -8,7 +8,13 @@ A FastAPI-based service that downloads videos from URLs and provides downloadabl
 - **Asynchronous Processing**: Downloads happen in background
 - **Status Tracking**: Check download progress with task IDs
 - **Direct Downloads**: Generate downloadable links for completed videos
-- **Multiple Platform Support**: Uses yt-dlp to support YouTube, Vimeo, and many other platforms
+- **Multiple Platform Support**: Uses yt-dlp to support YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and many other platforms
+- **Video Metadata Extraction**: Extracts title, duration, format, thumbnail, and direct video URLs
+- **Quality Selection**: Choose from 360p, 480p, 720p, 1080p, 1440p, or best available
+- **Download Types**: Single video, playlist, or album downloads
+- **Thumbnail Downloads**: Automatically downloads video thumbnails
+- **Smart Error Handling**: Categorized error messages with helpful suggestions
+- **Clean Response Format**: Metadata fields only included for successful downloads
 - **Mobile-Friendly**: Designed for integration with mobile applications
 
 ## API Endpoints
@@ -19,16 +25,26 @@ POST /download
 Content-Type: application/json
 
 {
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
+  "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+  "quality": "720p",
+  "download_type": "single"
 }
 ```
+
+**Request Parameters:**
+- `url` (required): Video URL from supported platforms
+- `quality` (optional): Video quality - `360p`, `480p`, `720p` (default), `1080p`, `1440p`, or `best`
+- `download_type` (optional): `single` (default), `playlist`, or `album`
 
 **Response:**
 ```json
 {
   "task_id": "uuid-string",
   "status": "initiated",
-  "message": "Download initiated for: Video Title"
+  "message": "Single download initiated (720p) for: Video Title",
+  "download_type": "single",
+  "quality": "720p",
+  "download_url": null
 }
 ```
 
@@ -37,14 +53,38 @@ Content-Type: application/json
 GET /status/{task_id}
 ```
 
-**Response:**
+**Response (Completed):**
 ```json
 {
   "task_id": "uuid-string",
   "status": "completed",
-  "message": "Video downloaded successfully",
+  "message": "Video downloaded successfully: Rick Astley - Never Gonna Give You Up",
+  "download_type": "single",
+  "quality": "720p",
   "download_url": "/download/uuid-string",
-  "filename": "video-file.mp4"
+  "filename": "uuid-string_Rick Astley - Never Gonna Give You Up.mp4",
+  "total_files": null,
+  "completed_files": null,
+  "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+  "url": "https://rr3---sn-ab5sznly.googlevideo.com/videoplayback?expire=1754012202...",
+  "duration": 213,
+  "format": "mp4",
+  "thumbnail": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp"
+}
+```
+
+**Response (Failed):**
+```json
+{
+  "task_id": "uuid-string",
+  "status": "failed",
+  "message": "This video is private or unavailable. Please check if the video is publicly accessible.",
+  "download_type": "single",
+  "quality": "720p",
+  "download_url": null,
+  "filename": null,
+  "total_files": null,
+  "completed_files": null
 }
 ```
 
@@ -91,7 +131,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:8888`
 
 ### Option 2: Docker
 
@@ -102,7 +142,7 @@ docker build -t video-downloader-api .
 
 2. **Run the container:**
 ```bash
-docker run -p 8000:8000 -v $(pwd)/downloads:/app/downloads video-downloader-api
+docker run -p 8888:8000 -v $(pwd)/downloads:/app/downloads video-downloader-api
 ```
 
 ## Usage Example
@@ -111,19 +151,19 @@ docker run -p 8000:8000 -v $(pwd)/downloads:/app/downloads video-downloader-api
 
 1. **Start a download:**
 ```bash
-curl -X POST "http://localhost:8000/download" \
+curl -X POST "http://localhost:8888/download" \
      -H "Content-Type: application/json" \
-     -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
+     -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "quality": "720p"}'
 ```
 
 2. **Check status:**
 ```bash
-curl "http://localhost:8000/status/YOUR_TASK_ID"
+curl "http://localhost:8888/status/YOUR_TASK_ID"
 ```
 
 3. **Download the file:**
 ```bash
-curl -O "http://localhost:8000/download/YOUR_TASK_ID"
+curl -O "http://localhost:8888/download/YOUR_TASK_ID"
 ```
 
 ### Mobile App Integration:
