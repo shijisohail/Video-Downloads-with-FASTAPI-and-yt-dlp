@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import aiofiles
+import re
 
 app = FastAPI(title="Video Downloader API", version="2.0.0")
 
@@ -22,6 +23,117 @@ DOWNLOADS_DIR.mkdir(exist_ok=True)
 
 # In-memory storage for download status (in production, use a database)
 download_status = {}
+
+# Error handling functions
+def is_valid_url(url: str) -> bool:
+    """Check if URL is valid"""
+    url_pattern = re.compile(
+        r'^https?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+'  # domain
+        r'(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # host
+        r'localhost|'  # localhost
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # IP
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return bool(url_pattern.match(url))
+
+def categorize_error(error_message: str) -> dict:
+    """Categorize error messages for better user feedback"""
+    error_lower = error_message.lower()
+    
+    if 'private' in error_lower or 'unavailable' in error_lower:
+        return {
+            'category': 'PRIVATE_VIDEO',
+            'user_message': 'This video is private or unavailable. Please check if the video is publicly accessible.',
+            'suggestion': 'Try a different video URL or contact the video owner.'
+        }
+    
+    elif 'geo' in error_lower or 'region' in error_lower or 'country' in error_lower:
+        return {
+            'category': 'GEO_RESTRICTED',
+            'user_message': 'This video is not available in your region due to geographical restrictions.',
+            'suggestion': 'This content may be restricted in your location.'
+        }
+    
+    elif 'age' in error_lower or 'restricted' in error_lower:
+        return {
+            'category': 'AGE_RESTRICTED',
+            'user_message': 'This video is age-restricted and cannot be downloaded.',
+            'suggestion': 'Age-restricted content requires special authentication.'
+        }
+    
+    elif 'copyright' in error_lower or 'dmca' in error_lower:
+        return {
+            'category': 'COPYRIGHT',
+            'user_message': 'This video is protected by copyright and cannot be downloaded.',
+            'suggestion': 'Please respect copyright restrictions.'
+        }
+    
+    elif 'format' in error_lower or 'no video' in error_lower:
+        return {
+            'category': 'FORMAT_ERROR',
+            'user_message': 'No suitable video format found for download.',
+            'suggestion': 'Try selecting a different quality or check if the video supports downloads.'
+        }
+    
+    elif 'network' in error_lower or 'timeout' in error_lower or 'connection' in error_lower:
+        return {
+            'category': 'NETWORK_ERROR',
+            'user_message': 'Network error occurred while downloading the video.',
+            'suggestion': 'Please check your internet connection and try again.'
+        }
+    
+    elif 'not found' in error_lower or '404' in error_lower:
+        return {
+            'category': 'VIDEO_NOT_FOUND',
+            'user_message': 'Video not found. The URL may be incorrect or the video may have been deleted.',
+            'suggestion': 'Please verify the URL and try again.'
+        }
+    
+    elif 'live' in error_lower or 'stream' in error_lower:
+        return {
+            'category': 'LIVE_STREAM',
+            'user_message': 'Live streams cannot be downloaded while they are active.',
+            'suggestion': 'Wait for the stream to end or try downloading a recorded version.'
+        }
+    
+    elif 'login' in error_lower or 'authentication' in error_lower:
+        return {
+            'category': 'AUTH_REQUIRED',
+            'user_message': 'This video requires authentication to access.',
+            'suggestion': 'This content may require login credentials.'
+        }
+    
+    else:
+        return {
+            'category': 'GENERAL_ERROR',
+            'user_message': 'An error occurred while processing your request.',
+            'suggestion': 'Please try again later or contact support if the issue persists.'
+        }
+
+def validate_url_platform(url: str) -> dict:
+    """Validate if the URL is from a supported platform"""
+    supported_patterns = {
+        'youtube': [r'youtube\.com', r'youtu\.be'],
+        'tiktok': [r'tiktok\.com'],
+        'instagram': [r'instagram\.com'],
+        'twitter': [r'twitter\.com', r'x\.com'],
+        'facebook': [r'facebook\.com', r'fb\.watch'],
+        'vimeo': [r'vimeo\.com'],
+        'dailymotion': [r'dailymotion\.com'],
+        'twitch': [r'twitch\.tv']
+    }
+    
+    for platform, patterns in supported_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, url, re.IGNORECASE):
+                return {'supported': True, 'platform': platform}
+    
+    return {
+        'supported': False, 
+        'platform': 'unknown',
+        'message': 'URL may not be from a supported platform. Supported platforms include YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and more.'
+    }
 
 class DownloadType(str, Enum):
     SINGLE = "single"
@@ -87,7 +199,11 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
         download_status[task_id]['message'] = 'Downloading video...'
         
         # Determine format based on quality
-        format_string = f'best[ext=mp4][height={quality}]/best[ext=mp4]/mp4[height={quality}]/mp4/best[height={quality}]/best'
+        if quality == 'best':
+            format_string = 'best[ext=mp4]/best'
+        else:
+            height = quality.replace('p', '')  # Remove 'p' from quality like '720p' -> '720'
+            format_string = f'best[ext=mp4][height<={height}]/best[ext=mp4]/mp4[height<={height}]/mp4/best[height<={height}]/best'
 
         # Configure yt-dlp options for download
         filename_template = f"{task_id}_%(title)s.%(ext)s"
@@ -150,18 +266,30 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 })
 
     except Exception as e:
+        error_response = categorize_error(str(e))
         download_status[task_id].update({
             'status': 'failed',
-            'message': f'Download failed: {str(e)}'
+            'message': error_response['user_message'],
+            'error_category': error_response['category'],
+            'suggestion': error_response['suggestion']
         })
 
 @app.post("/download", response_model=DownloadResponse)
 async def initiate_download(request: VideoDownloadRequest, background_tasks: BackgroundTasks):
     """Initiate video download from provided URL"""
+    # Verify URL validity
+    if not is_valid_url(str(request.url)):
+        raise HTTPException(status_code=400, detail="Invalid URL format. Please check the URL and try again.")
+
+    # Verify platform support
+    platform_check = validate_url_platform(str(request.url))
+    if not platform_check['supported']:
+        raise HTTPException(status_code=400, detail=platform_check['message'])
+
     # Generate unique task ID
     task_id = str(uuid.uuid4())
-    
-    # Initialize download status immediately (no validation to speed up response)
+
+    # Initialize download status immediately
     download_status[task_id] = {
         'task_id': task_id,
         'status': 'initiated',
@@ -174,9 +302,17 @@ async def initiate_download(request: VideoDownloadRequest, background_tasks: Bac
         'total_files': None,
         'completed_files': None
     }
-    
+
     # Start background download task
-    background_tasks.add_task(download_video, str(request.url), task_id, request.download_type.value, request.quality.value)
+    try:
+        background_tasks.add_task(download_video, str(request.url), task_id, request.download_type.value, request.quality.value)
+    except Exception as e:
+        error_response = categorize_error(str(e))
+        download_status[task_id].update({
+            'status': 'failed',
+            'message': error_response['user_message'],
+        })
+        raise HTTPException(status_code=400, detail=error_response['user_message'])
     
     return DownloadResponse(
         task_id=task_id,
