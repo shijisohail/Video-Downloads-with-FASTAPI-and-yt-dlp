@@ -1,0 +1,302 @@
+{
+  "info": {
+    "name": "Video Downloader API v2.0",
+    "description": "API for downloading videos with quality selection and download type options",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8888",
+      "type": "string"
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Check if the API server is healthy and running"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"status\": \"healthy\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "API Information",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": ["{{base_url}}"],
+          "path": [""]
+        },
+        "description": "Get API version and available endpoints"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"2.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Download Single Video (720p)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set('task_id', response.task_id);",
+              "    pm.test('Task ID received', function() {",
+              "        pm.expect(response.task_id).to.be.a('string');",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"url\": \"https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/download",
+          "host": ["{{base_url}}"],
+          "path": ["download"]
+        },
+        "description": "Download a single video in 720p quality"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/download",
+              "host": ["{{base_url}}"],
+              "path": ["download"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (720p) for: https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
+        }
+      ]
+    },
+    {
+      "name": "Download Single Video (1080p)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"url\": \"https://youtu.be/dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"1080p\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/download",
+          "host": ["{{base_url}}"],
+          "path": ["download"]
+        },
+        "description": "Download a single video in 1080p quality"
+      }
+    },
+    {
+      "name": "Download Playlist",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"url\": \"https://www.youtube.com/playlist?list=PLrAXtmRdnEQy6nuLMV9gnUr6Y9QNFUpNf\",\n    \"download_type\": \"playlist\",\n    \"quality\": \"720p\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/download",
+          "host": ["{{base_url}}"],
+          "path": ["download"]
+        },
+        "description": "Download entire playlist in 720p quality"
+      }
+    },
+    {
+      "name": "Download Album",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"url\": \"https://www.youtube.com/playlist?list=OLAK5uy_kp7SEOTllYbKtjO_8Y_A1_Z9GhvQxc8C0\",\n    \"download_type\": \"album\",\n    \"quality\": \"720p\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/download",
+          "host": ["{{base_url}}"],
+          "path": ["download"]
+        },
+        "description": "Download album/music playlist in 720p quality"
+      }
+    },
+    {
+      "name": "Check Download Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/status/{{task_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["status", "{{task_id}}"]
+        },
+        "description": "Check the status of a download task. Use task_id from download response."
+      },
+      "response": [
+        {
+          "name": "Processing",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["status", "{{task_id}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"processing\",\n    \"message\": \"Downloading video...\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"filename\": null,\n    \"total_files\": null,\n    \"completed_files\": null\n}"
+        },
+        {
+          "name": "Completed",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["status", "{{task_id}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully: Eminem - Love The Way You Lie ft. Rihanna\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/download/f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"filename\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076_Eminem - Love The Way You Lie ft. Rihanna.mp4\",\n    \"total_files\": 1,\n    \"completed_files\": 1\n}"
+        }
+      ]
+    },
+    {
+      "name": "Download Video File",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/download/{{task_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["download", "{{task_id}}"]
+        },
+        "description": "Download the completed video file. Only works when status is 'completed'."
+      },
+      "response": [
+        {
+          "name": "Success - File Download",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/download/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["download", "{{task_id}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "content-type",
+              "value": "application/octet-stream"
+            },
+            {
+              "key": "content-disposition",
+              "value": "attachment; filename=\"video-title.mp4\""
+            }
+          ],
+          "body": "[Binary MP4 Video Data]"
+        }
+      ]
+    }
+  ]
+}
