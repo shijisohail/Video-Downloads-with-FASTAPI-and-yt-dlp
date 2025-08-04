@@ -19,9 +19,6 @@ import shutil
 import requests
 import json
 import urllib.parse
-import asyncio
-import aiohttp
-import time
 
 VERSION = "2.0.0"
 
@@ -431,6 +428,7 @@ def get_video_info(url: str):
             }
         except Exception as e:
             raise Exception(f"Failed to get video info: {str(e)}")
+
 
 
 async def download_video(url: str, task_id: str, download_type: str, quality: str):
@@ -847,21 +845,54 @@ async def get_download_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     status_data = download_status[task_id].copy()
-
-    # Only include metadata fields if download is completed
-    if status_data.get("status") != "completed":
-        # Remove metadata fields for non-completed downloads
-        metadata_fields = ["title", "url", "duration", "format", "thumbnail"]
-        for field in metadata_fields:
-            status_data.pop(field, None)
-
-        # Create response model excluding metadata fields
-        exclude_fields = {"title", "url", "duration", "format", "thumbnail"}
-        response = DownloadStatus(**status_data)
-        return JSONResponse(content=response.model_dump(exclude=exclude_fields))
-    else:
-        # Include all fields for completed downloads
-        return DownloadStatus(**status_data)
+    
+    try:
+        # Clean up the status data to match the DownloadStatus model
+        # Remove any extra fields that are not in the model
+        valid_fields = {
+            "task_id", "status", "message", "download_type", "quality",
+            "download_url", "filename", "total_files", "completed_files",
+            "title", "url", "duration", "format", "thumbnail"
+        }
+        
+        # Filter status_data to only include valid fields
+        filtered_data = {k: v for k, v in status_data.items() if k in valid_fields}
+        
+        # Convert duration to integer if it exists and is a float
+        if 'duration' in filtered_data and filtered_data['duration'] is not None:
+            try:
+                filtered_data['duration'] = int(filtered_data['duration'])
+            except (ValueError, TypeError):
+                filtered_data['duration'] = 0
+        
+        # Only include metadata fields if download is completed
+        if filtered_data.get("status") != "completed":
+            # Remove metadata fields for non-completed downloads
+            metadata_fields = ["title", "url", "duration", "format", "thumbnail"]
+            for field in metadata_fields:
+                filtered_data.pop(field, None)
+        
+        # Create and return the response
+        return DownloadStatus(**filtered_data)
+        
+    except Exception as e:
+        logger.error(f"Error creating status response for task {task_id}: {str(e)}")
+        logger.error(f"Status data: {status_data}")
+        
+        # Return a safe fallback response
+        fallback_response = {
+            "task_id": task_id,
+            "status": status_data.get("status", "unknown"),
+            "message": status_data.get("message", "Status information unavailable"),
+            "download_type": status_data.get("download_type", "single"),
+            "quality": status_data.get("quality", "best"),
+            "download_url": status_data.get("download_url"),
+            "filename": status_data.get("filename"),
+            "total_files": status_data.get("total_files"),
+            "completed_files": status_data.get("completed_files")
+        }
+        
+        return DownloadStatus(**fallback_response)
 
 
 @app.get("/download/{task_id}")
