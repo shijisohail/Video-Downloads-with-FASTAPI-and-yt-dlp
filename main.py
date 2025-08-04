@@ -9,7 +9,8 @@ from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import re
 
-app = FastAPI(title="Video Downloader API", version="2.0.0")
+VERSION = "2.0.0"
+app = FastAPI(title="Video Downloader API", version=f"{VERSION}")
 
 # Mount static files for serving downloads
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -419,7 +420,7 @@ async def root():
     """API health check and information"""
     return {
         "message": "Video Downloader API",
-        "version": "1.0.0",
+        "version": f"{VERSION}",
         "endpoints": {
             "POST /download": "Initiate video download",
             "GET /status/{task_id}": "Check download status",

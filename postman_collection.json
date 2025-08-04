@@ -76,12 +76,12 @@
           "status": "OK",
           "code": 200,
           "header": [],
-          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"1.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
+          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"2.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
         }
       ]
     },
     {
-      "name": "Download Single Video (720p)",
+      "name": "Download Video - Standard Quality",
       "event": [
         {
           "listen": "test",
@@ -108,14 +108,14 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+          "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=iq_6dwYr6YE\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/download",
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download a single video in 720p quality"
+        "description": "Download a single video in standard 720p quality"
       },
       "response": [
         {
@@ -130,7 +130,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"url\": \"https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+              "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=iq_6dwYr6YE\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/download",
@@ -141,12 +141,37 @@
           "status": "OK",
           "code": 200,
           "header": [],
-          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (720p) for: https://youtu.be/uelHwf8o7_U\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
+          "body": "{\n    \"task_id\": \"df3c558b-2759-4d87-9383-b4d01bd53c42\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (VideoQuality.HIGH) for: https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
+        },
+        {
+          "name": "Error - Unsupported Platform",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://invalid-url.com/video\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/download",
+              "host": ["{{base_url}}"],
+              "path": ["download"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "header": [],
+          "body": "{\n    \"detail\": \"URL may not be from a supported platform. Supported platforms include YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and more.\"\n}"
         }
       ]
     },
     {
-      "name": "Download Single Video (1080p)",
+      "name": "Download Video - High Quality",
       "request": {
         "method": "POST",
         "header": [
@@ -164,7 +189,7 @@
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download a single video in 1080p quality"
+        "description": "Download a single video in high 1080p quality"
       }
     },
     {
@@ -212,7 +237,7 @@
       }
     },
     {
-      "name": "Download TikTok Video",
+      "name": "Download Social Media Video",
       "request": {
         "method": "POST",
         "header": [
@@ -230,11 +255,11 @@
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download a TikTok video in 720p quality"
+        "description": "Download a video from various supported platforms (YouTube, TikTok, Instagram, etc.) in 720p quality"
       },
       "response": [
         {
-          "name": "Success - TikTok",
+          "name": "Success - Social Media",
           "originalRequest": {
             "method": "POST",
             "header": [
