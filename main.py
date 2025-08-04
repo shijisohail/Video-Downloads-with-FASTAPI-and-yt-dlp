@@ -8,8 +8,53 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import re
+import logging
+import os
+from datetime import datetime
+import traceback
+import sys
 
 VERSION = "2.0.0"
+
+# Setup logging configuration
+LOGS_DIR = Path("logs")
+LOGS_DIR.mkdir(exist_ok=True)
+
+# Configure logging
+log_formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+)
+
+# File handler for all logs
+file_handler = logging.FileHandler(LOGS_DIR / 'video_downloader.log')
+file_handler.setFormatter(log_formatter)
+file_handler.setLevel(logging.DEBUG)
+
+# File handler for errors only
+error_handler = logging.FileHandler(LOGS_DIR / 'errors.log')
+error_handler.setFormatter(log_formatter)
+error_handler.setLevel(logging.ERROR)
+
+# Console handler
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(log_formatter)
+console_handler.setLevel(logging.INFO)
+
+# Setup logger
+logger = logging.getLogger("video_downloader_api")
+logger.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
+logger.addHandler(error_handler)
+logger.addHandler(console_handler)
+
+# Prevent duplicate logs
+logger.propagate = False
+
+# Log startup
+logger.info(f"=== Video Downloader API v{VERSION} Starting ===")
+logger.info(f"Logs directory: {LOGS_DIR.absolute()}")
+logger.info(f"Downloads directory: {Path('downloads').absolute()}")
+
 app = FastAPI(title="Video Downloader API", version=f"{VERSION}")
 
 # Mount static files for serving downloads
@@ -212,10 +257,13 @@ def get_video_info(url: str):
 
 async def download_video(url: str, task_id: str, download_type: str, quality: str):
     """Download video in background"""
+    logger.info(f"Starting download - Task ID: {task_id}, URL: {url}, Quality: {quality}, Type: {download_type}")
+    
     try:
         # Update status to processing
         download_status[task_id]["status"] = "processing"
         download_status[task_id]["message"] = "Downloading video..."
+        logger.debug(f"Task {task_id}: Status updated to processing")
 
         # Determine format based on quality
         if quality == "best":
@@ -225,6 +273,8 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "p", ""
             )  # Remove 'p' from quality like '720p' -> '720'
             format_string = f"best[ext=mp4][height<={height}]/best[ext=mp4]/mp4[height<={height}]/mp4/best[height<={height}]/best"
+        
+        logger.debug(f"Task {task_id}: Format string: {format_string}")
 
         # Configure yt-dlp options for download
         filename_template = f"{task_id}_%(title)s.%(ext)s"
@@ -246,18 +296,33 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "referer": "https://www.youtube.com/",
         }
+        
+        logger.debug(f"Task {task_id}: yt-dlp options configured: {ydl_opts}")
+        logger.info(f"Task {task_id}: Starting yt-dlp extraction for {url}")
 
         # Download the content
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            if download_type == "single":
-                info = ydl.extract_info(url, download=True)
-            else:
-                info = ydl.extract_info(url, download=True)
-                # Count total and completed files
-                total_files = sum(1 for file in (info.get("entries") or []))
-                completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_*"))
-                download_status[task_id]["total_files"] = total_files
-                download_status[task_id]["completed_files"] = completed_files
+            try:
+                if download_type == "single":
+                    logger.debug(f"Task {task_id}: Extracting single video")
+                    info = ydl.extract_info(url, download=True)
+                else:
+                    logger.debug(f"Task {task_id}: Extracting {download_type}")
+                    info = ydl.extract_info(url, download=True)
+                    # Count total and completed files
+                    total_files = sum(1 for file in (info.get("entries") or []))
+                    completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+                    download_status[task_id]["total_files"] = total_files
+                    download_status[task_id]["completed_files"] = completed_files
+                    logger.debug(f"Task {task_id}: Playlist/Album - Total: {total_files}, Completed: {completed_files}")
+                
+                logger.info(f"Task {task_id}: yt-dlp extraction completed successfully")
+                logger.debug(f"Task {task_id}: Video info - Title: {info.get('title', 'Unknown')}, Duration: {info.get('duration', 0)}s")
+                
+            except Exception as ytdl_error:
+                logger.error(f"Task {task_id}: yt-dlp extraction failed: {str(ytdl_error)}")
+                logger.error(f"Task {task_id}: yt-dlp error traceback: {traceback.format_exc()}")
+                raise ytdl_error
 
             # Find the downloaded file
             downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_*"))
