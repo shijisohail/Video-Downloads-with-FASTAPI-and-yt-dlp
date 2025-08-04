@@ -13,6 +13,15 @@ import os
 from datetime import datetime
 import traceback
 import sys
+import tempfile
+import subprocess
+import shutil
+import requests
+import json
+import urllib.parse
+import asyncio
+import aiohttp
+import time
 
 VERSION = "2.0.0"
 
@@ -273,6 +282,137 @@ class DownloadStatus(BaseModel):
     thumbnail: Optional[str] = None
 
 
+def detect_browsers():
+    """Detect available browsers for cookie extraction"""
+    browsers = []
+    
+    # Common browser paths and names (prioritize Chrome for better social media support)
+    browser_configs = {
+        "chrome": ["google-chrome", "chrome", "chromium", "google-chrome-stable"],
+        "firefox": ["firefox", "firefox-esr"],
+        "edge": ["microsoft-edge", "msedge"],
+        "safari": ["safari"],
+        "opera": ["opera"],
+    }
+    
+    for browser_name, commands in browser_configs.items():
+        for cmd in commands:
+            if shutil.which(cmd):
+                browsers.append(browser_name)
+                logger.debug(f"Detected browser: {browser_name} (command: {cmd})")
+                break
+    
+    logger.info(f"Available browsers for cookie extraction: {browsers}")
+    return browsers
+
+
+def create_social_media_headers(platform: str) -> dict:
+    """Create platform-specific headers for social media platforms"""
+    base_headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+        "sec-ch-ua": '"Chromium";v="120", "Google Chrome";v="120", "Not:A-Brand";v="8"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+    }
+    
+    if platform == "instagram":
+        base_headers.update({
+            "X-Instagram-AJAX": "1",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": "missing",
+            "Referer": "https://www.instagram.com/",
+            "Origin": "https://www.instagram.com",
+        })
+    elif platform == "facebook":
+        base_headers.update({
+            "Referer": "https://www.facebook.com/",
+            "Origin": "https://www.facebook.com",
+            "X-Requested-With": "XMLHttpRequest",
+        })
+    elif platform == "tiktok":
+        base_headers.update({
+            "Referer": "https://www.tiktok.com/",
+            "Origin": "https://www.tiktok.com",
+        })
+    
+    return base_headers
+
+
+def extract_cookies_from_browser(platform: str, browsers: list) -> Optional[str]:
+    """Extract cookies from browser and save to temporary file"""
+    if not browsers:
+        return None
+    
+    # Try each available browser
+    for browser in browsers:
+        try:
+            logger.info(f"Attempting to extract {platform} cookies from {browser}")
+            
+            # Create temporary cookie file
+            temp_cookie_file = tempfile.NamedTemporaryFile(
+                mode='w', suffix=f'_{platform}_cookies.txt', delete=False
+            )
+            temp_cookie_file.close()
+            
+            # Configure yt-dlp to extract cookies
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "cookiesfrombrowser": (browser, None, None, None),
+                "cookiefile": temp_cookie_file.name,
+                "writecookiefile": True,
+                "extract_flat": True,
+                "simulate": True,  # Don't actually download
+            }
+            
+            # Use a simple URL to test cookie extraction
+            test_urls = {
+                "youtube": "https://www.youtube.com",
+                "instagram": "https://www.instagram.com",
+                "tiktok": "https://www.tiktok.com",
+                "twitter": "https://twitter.com",
+                "facebook": "https://www.facebook.com",
+                "vimeo": "https://vimeo.com",
+            }
+            
+            test_url = test_urls.get(platform, "https://www.youtube.com")
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    # This will extract cookies and save them
+                    ydl.extract_info(test_url, download=False)
+                    
+                    # Check if cookie file was created and has content
+                    if os.path.exists(temp_cookie_file.name) and os.path.getsize(temp_cookie_file.name) > 0:
+                        logger.info(f"Successfully extracted {platform} cookies from {browser}")
+                        return temp_cookie_file.name
+                    else:
+                        os.unlink(temp_cookie_file.name)
+                        
+                except Exception as e:
+                    logger.debug(f"Failed to extract cookies from {browser} for {platform}: {str(e)}")
+                    if os.path.exists(temp_cookie_file.name):
+                        os.unlink(temp_cookie_file.name)
+                    continue
+                    
+        except Exception as e:
+            logger.debug(f"Browser {browser} cookie extraction failed: {str(e)}")
+            continue
+    
+    logger.warning(f"Could not extract {platform} cookies from any available browser")
+    return None
+
+
 def get_video_info(url: str):
     """Get video information without downloading"""
     ydl_opts = {
@@ -316,6 +456,72 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
 
         # Configure yt-dlp options for download
         filename_template = f"{task_id}_%(title)s.%(ext)s"
+        
+        # Detect platform and find appropriate cookie file
+        platform_info = validate_url_platform(url)
+        platform = platform_info.get("platform", "unknown")
+        
+        # Cookie file mapping for different platforms
+        cookie_files = {
+            "youtube": ["youtube.com_cookies.txt", "youtube_cookies.txt"],
+            "instagram": ["instagram.com_cookies.txt", "instagram_cookies.txt"],
+            "tiktok": ["tiktok.com_cookies.txt", "tiktok_cookies.txt"],
+            "twitter": ["twitter.com_cookies.txt", "x.com_cookies.txt", "twitter_cookies.txt"],
+            "facebook": ["facebook.com_cookies.txt", "facebook_cookies.txt"],
+            "vimeo": ["vimeo.com_cookies.txt", "vimeo_cookies.txt"],
+            "dailymotion": ["dailymotion.com_cookies.txt", "dailymotion_cookies.txt"],
+            "twitch": ["twitch.tv_cookies.txt", "twitch_cookies.txt"],
+        }
+        
+        # Find appropriate cookie file or extract from browser
+        selected_cookie_file = None
+        dynamic_cookie_file = None
+        
+        # First, try existing cookie files with validation
+        if platform in cookie_files:
+            for cookie_filename in cookie_files[platform]:
+                cookie_path = SCRIPT_DIR / cookie_filename
+                if cookie_path.exists() and os.path.getsize(cookie_path) > 100:
+                    # Validate cookie file format
+                    try:
+                        with open(cookie_path, 'r', encoding='utf-8') as f:
+                            content = f.read().strip()
+                            # Check if it's a valid Netscape cookie format or has content
+                            if content and (content.startswith('# Netscape HTTP Cookie File') or '\t' in content):
+                                selected_cookie_file = cookie_path
+                                logger.info(f"Task {task_id}: Found valid cookies for {platform}: {cookie_filename}")
+                                break
+                            else:
+                                logger.debug(f"Task {task_id}: Cookie file {cookie_filename} has invalid format")
+                    except Exception as e:
+                        logger.debug(f"Task {task_id}: Error reading cookie file {cookie_filename}: {e}")
+        
+        # If no platform-specific cookies found, try generic cookies file
+        if not selected_cookie_file:
+            generic_cookies = SCRIPT_DIR / "cookies.txt"
+            if generic_cookies.exists() and os.path.getsize(generic_cookies) > 100:
+                try:
+                    with open(generic_cookies, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content and (content.startswith('# Netscape HTTP Cookie File') or '\t' in content):
+                            selected_cookie_file = generic_cookies
+                            logger.info(f"Task {task_id}: Using valid generic cookies file")
+                except Exception as e:
+                    logger.debug(f"Task {task_id}: Error reading generic cookie file: {e}")
+        
+        # If no existing cookies, try to extract from browser dynamically
+        if not selected_cookie_file:
+            logger.info(f"Task {task_id}: No existing cookies found, attempting dynamic extraction for {platform}")
+            available_browsers = detect_browsers()
+            
+            if available_browsers:
+                dynamic_cookie_file = extract_cookies_from_browser(platform, available_browsers)
+                if dynamic_cookie_file:
+                    selected_cookie_file = Path(dynamic_cookie_file)
+                    logger.info(f"Task {task_id}: Successfully extracted dynamic cookies for {platform}")
+                else:
+                    logger.warning(f"Task {task_id}: Dynamic cookie extraction failed for {platform}")
+        
         ydl_opts = {
             "outtmpl": str(DOWNLOADS_DIR / filename_template),
             "format": format_string,
@@ -326,73 +532,230 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             "ignoreerrors": False,
             "quiet": True,
             "no_warnings": True,
-            "extractflat": download_type
-            != "single",  # Flat playlist/album extraction for non-single
+            "extractflat": download_type != "single",  # Flat playlist/album extraction for non-single
             "writethumbnail": True,
             "prefer_ffmpeg": True,
-            # Additional options for better compatibility
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "referer": "https://www.youtube.com/",
+            # Enhanced options for better compatibility and bot detection avoidance
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "http_chunk_size": 10485760,  # 10MB chunks
+            "retries": 10,  # Increased retries for better reliability
+            "fragment_retries": 10,
+            "retry_sleep_functions": {"http": lambda n: min(3 ** n, 60)},  # Exponential backoff
+            # Geo and age bypass options
+            "geo_bypass": True,
+            "geo_bypass_country": "US",
+            "age_limit": 21,
+            # Enhanced headers to avoid bot detection
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "DNT": "1",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "Cache-Control": "max-age=0",
+                "sec-ch-ua": '"Chromium";v="120", "Google Chrome";v="120", "Not:A-Brand";v="8"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
+            },
+            # Network optimizations
+            "socket_timeout": 60,  # Increased timeout
+            "source_address": None,
+            # Additional platform-specific options
+            "nocheckcertificate": True,
+            # Platform-specific optimizations
+            "extractor_retries": 5,
+            "skip_unavailable_fragments": True,
+            # Multi-server support - try multiple CDNs/servers
+            "prefer_insecure": False,
+            "call_home": False,
+            # Enhanced error recovery
+            "continue_dl": True,
+            "nopart": False,
+            # Platform-specific tweaks
+            "youtube_include_dash_manifest": True if platform == "youtube" else False,
+            # Generic extractor fallbacks
+            "default_search": "auto",
         }
+        
+        # Add cookies if found
+        if selected_cookie_file:
+            ydl_opts["cookiefile"] = str(selected_cookie_file)
+            logger.info(f"Task {task_id}: Using cookies file: {selected_cookie_file}")
+        else:
+            logger.warning(f"Task {task_id}: No cookies available for {platform}. Trying without authentication.")
+            # For platforms that typically need authentication, try browser cookies as final fallback
+            if platform in ["youtube", "instagram", "tiktok", "twitter", "facebook"]:
+                available_browsers = detect_browsers()
+                if available_browsers:
+                    try:
+                        # Try the first available browser
+                        primary_browser = available_browsers[0]
+                        ydl_opts["cookiesfrombrowser"] = (primary_browser, None, None, None)
+                        logger.info(f"Task {task_id}: Attempting to use {primary_browser} browser cookies as final fallback")
+                    except Exception as e:
+                        logger.debug(f"Task {task_id}: Browser cookies final fallback failed: {str(e)}")
         
         logger.debug(f"Task {task_id}: yt-dlp options configured: {ydl_opts}")
         logger.info(f"Task {task_id}: Starting yt-dlp extraction for {url}")
 
-        # Download the content
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Download the content with enhanced error handling and multi-server support
+        download_successful = False
+        last_error = None
+        
+        # Platform-specific extraction strategies for better reliability
+        extraction_strategies = []
+        
+        # Strategy 1: Full extraction with all options
+        extraction_strategies.append({"strategy": "full", "opts": ydl_opts.copy()})
+        
+        # Strategy 2: Platform-specific optimized extraction
+        if platform == "instagram":
+            instagram_opts = ydl_opts.copy()
+            instagram_opts.update({
+                "format": "best[ext=mp4]/best",
+                "http_headers": {
+                    **ydl_opts["http_headers"],
+                    "X-Instagram-AJAX": "1",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                "extract_flat": False,
+                "no_check_certificates": True,
+            })
+            extraction_strategies.append({"strategy": "instagram_optimized", "opts": instagram_opts})
+            
+        elif platform == "tiktok":
+            tiktok_opts = ydl_opts.copy()
+            tiktok_opts.update({
+                "format": "best[ext=mp4]/best",
+                "http_headers": {
+                    **ydl_opts["http_headers"],
+                    "Referer": "https://www.tiktok.com/",
+                },
+                "extract_flat": False,
+            })
+            extraction_strategies.append({"strategy": "tiktok_optimized", "opts": tiktok_opts})
+            
+        elif platform == "facebook":
+            facebook_opts = ydl_opts.copy()
+            facebook_opts.update({
+                "format": "best[ext=mp4]/best",
+                "http_headers": {
+                    **ydl_opts["http_headers"],
+                    "Referer": "https://www.facebook.com/",
+                },
+                "extract_flat": False,
+            })
+            extraction_strategies.append({"strategy": "facebook_optimized", "opts": facebook_opts})
+        
+        # Strategy 3: Simplified extraction for compatibility
+        simplified_opts = {
+            k: v for k, v in ydl_opts.items() if k in [
+                "outtmpl", "format", "quiet", "no_warnings", "retries", "fragment_retries",
+                "socket_timeout", "user_agent", "http_headers", "cookiefile", "cookiesfrombrowser"
+            ]
+        }
+        extraction_strategies.append({"strategy": "simple", "opts": simplified_opts})
+        
+        # Strategy 4: Fallback with browser cookies only (for social media)
+        if platform in ["instagram", "tiktok", "facebook", "twitter"]:
+            available_browsers = detect_browsers()
+            if available_browsers:
+                browser_opts = {
+                    "outtmpl": ydl_opts["outtmpl"],
+                    "format": "best[ext=mp4]/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "user_agent": ydl_opts["user_agent"],
+                    "socket_timeout": 45,
+                    "cookiesfrombrowser": (available_browsers[0], None, None, None),
+                    "http_headers": ydl_opts["http_headers"],
+                }
+                extraction_strategies.append({"strategy": "browser_cookies", "opts": browser_opts})
+        
+        # Strategy 5: Generic extractor fallback
+        generic_opts = {
+            "outtmpl": ydl_opts["outtmpl"],
+            "format": "best[ext=mp4]/best",
+            "quiet": True,
+            "no_warnings": True,
+            "user_agent": ydl_opts["user_agent"],
+            "socket_timeout": 30,
+        }
+        extraction_strategies.append({"strategy": "generic", "opts": generic_opts})
+        
+        for strategy_info in extraction_strategies:
+            strategy_name = strategy_info["strategy"]
+            strategy_opts = strategy_info["opts"]
+            
+            logger.info(f"Task {task_id}: Trying extraction strategy: {strategy_name}")
+            
             try:
-                if download_type == "single":
-                    logger.debug(f"Task {task_id}: Extracting single video")
-                    info = ydl.extract_info(url, download=True)
-                else:
-                    logger.debug(f"Task {task_id}: Extracting {download_type}")
-                    info = ydl.extract_info(url, download=True)
-                    # Count total and completed files
-                    total_files = sum(1 for file in (info.get("entries") or []))
-                    completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_*"))
-                    download_status[task_id]["total_files"] = total_files
-                    download_status[task_id]["completed_files"] = completed_files
-                    logger.debug(f"Task {task_id}: Playlist/Album - Total: {total_files}, Completed: {completed_files}")
-                
-                logger.info(f"Task {task_id}: yt-dlp extraction completed successfully")
-                logger.debug(f"Task {task_id}: Video info - Title: {info.get('title', 'Unknown')}, Duration: {info.get('duration', 0)}s")
-                
+                with yt_dlp.YoutubeDL(strategy_opts) as ydl:
+                    if download_type == "single":
+                        logger.debug(f"Task {task_id}: Extracting single video with {strategy_name} strategy")
+                        info = ydl.extract_info(url, download=True)
+                    else:
+                        logger.debug(f"Task {task_id}: Extracting {download_type} with {strategy_name} strategy")
+                        info = ydl.extract_info(url, download=True)
+                        # Count total and completed files
+                        total_files = sum(1 for file in (info.get("entries") or []))
+                        completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+                        download_status[task_id]["total_files"] = total_files
+                        download_status[task_id]["completed_files"] = completed_files
+                        logger.debug(f"Task {task_id}: Playlist/Album - Total: {total_files}, Completed: {completed_files}")
+                    
+                    logger.info(f"Task {task_id}: yt-dlp extraction completed successfully with {strategy_name} strategy")
+                    logger.debug(f"Task {task_id}: Video info - Title: {info.get('title', 'Unknown')}, Duration: {info.get('duration', 0)}s")
+                    download_successful = True
+                    break
+                    
             except Exception as ytdl_error:
-                logger.error(f"Task {task_id}: yt-dlp extraction failed: {str(ytdl_error)}")
-                logger.error(f"Task {task_id}: yt-dlp error traceback: {traceback.format_exc()}")
-                raise ytdl_error
+                logger.warning(f"Task {task_id}: Strategy {strategy_name} failed: {str(ytdl_error)}")
+                last_error = ytdl_error
+                continue
+        
+        if not download_successful:
+            logger.error(f"Task {task_id}: All extraction strategies failed")
+            logger.error(f"Task {task_id}: Final error: {str(last_error)}")
+            logger.error(f"Task {task_id}: Full traceback: {traceback.format_exc()}")
+            raise last_error
 
-            # Find the downloaded file
-            downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_*"))
-            if not downloaded_files:
-                raise Exception("Downloaded file not found")
+        # Find the downloaded file
+        downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+        if not downloaded_files:
+            raise Exception("Downloaded file not found")
 
-            for downloaded_file in downloaded_files:
-                # Update status for each file
-                filename = downloaded_file.name
+        for downloaded_file in downloaded_files:
+            # Update status for each file
+            filename = downloaded_file.name
 
-                # Extract video information
-                video_title = info.get("title", "Unknown Video")
-                video_duration = info.get("duration", 0)
-                video_url = info.get("url") or info.get("webpage_url")
-                video_format = info.get("ext", "mp4")
-                video_thumbnail = info.get("thumbnail")
-                uploader = info.get("uploader", "Unknown")
+            # Extract video information
+            video_title = info.get("title", "Unknown Video")
+            video_duration = info.get("duration", 0)
+            video_url = info.get("url") or info.get("webpage_url")
+            video_format = info.get("ext", "mp4")
+            video_thumbnail = info.get("thumbnail")
+            uploader = info.get("uploader", "Unknown")
 
-                # Update status to completed with video info
-                download_status[task_id].update(
-                    {
-                        "status": "completed",
-                        "message": f"Video downloaded successfully: {video_title}",
-                        "download_url": f"/download/{task_id}",
-                        "filename": filename,
-                        "title": video_title,
-                        "url": video_url,
-                        "duration": video_duration,
-                        "format": video_format,
-                        "thumbnail": video_thumbnail,
-                    }
-                )
+            # Update status to completed with video info
+            download_status[task_id].update(
+                {
+                    "status": "completed",
+                    "message": f"Video downloaded successfully: {video_title}",
+                    "download_url": f"/download/{task_id}",
+                    "filename": filename,
+                    "title": video_title,
+                    "url": video_url,
+                    "duration": video_duration,
+                    "format": video_format,
+                    "thumbnail": video_thumbnail,
+                }
+            )
 
     except Exception as e:
         error_response = categorize_error(str(e))
@@ -404,6 +767,16 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "suggestion": error_response["suggestion"],
             }
         )
+        logger.error(f"Task {task_id}: Download failed with error: {str(e)}")
+    
+    finally:
+        # Clean up any temporary cookie files
+        if dynamic_cookie_file and os.path.exists(dynamic_cookie_file):
+            try:
+                os.unlink(dynamic_cookie_file)
+                logger.debug(f"Task {task_id}: Cleaned up temporary cookie file: {dynamic_cookie_file}")
+            except Exception as cleanup_error:
+                logger.warning(f"Task {task_id}: Failed to clean up temporary cookie file: {cleanup_error}")
 
 
 @app.post("/download", response_model=DownloadResponse)

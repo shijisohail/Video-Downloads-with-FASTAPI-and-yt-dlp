@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:8888",
+      "value": "http://3.19.120.236:8888",
       "type": "string"
     },
     {
@@ -345,6 +345,125 @@
           "code": 200,
           "header": [],
           "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/download/f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"filename\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076_Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster).mp4\",\n    \"total_files\": null,\n    \"completed_files\": null,\n    \"title\": \"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"url\": \"https://rr3---sn-ab5sznly.googlevideo.com/videoplayback?expire=1754012202...\",\n    \"duration\": 213,\n    \"format\": \"mp4\",\n    \"thumbnail\": \"https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "List Log Files",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/logs",
+          "host": ["{{base_url}}"],
+          "path": ["logs"]
+        },
+        "description": "Get information about available log files"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/logs",
+              "host": ["{{base_url}}"],
+              "path": ["logs"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"logs_directory\": \"/app/logs\",\n    \"available_logs\": [\n        {\n            \"filename\": \"video_downloader.log\",\n            \"size_bytes\": 1024,\n            \"modified\": \"2025-08-04T16:35:56.134073\",\n            \"url\": \"/logs/video_downloader.log\"\n        },\n        {\n            \"filename\": \"errors.log\",\n            \"size_bytes\": 512,\n            \"modified\": \"2025-08-04T16:35:56.132073\",\n            \"url\": \"/logs/errors.log\"\n        }\n    ],\n    \"total_files\": 2\n}"
+        }
+      ]
+    },
+    {
+      "name": "View Main Log File",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/logs/video_downloader.log?lines=50",
+          "host": ["{{base_url}}"],
+          "path": ["logs", "video_downloader.log"],
+          "query": [
+            {
+              "key": "lines",
+              "value": "50",
+              "description": "Number of lines to retrieve from the end of the log file"
+            }
+          ]
+        },
+        "description": "View the last N lines of the main application log file"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/logs/video_downloader.log?lines=50",
+              "host": ["{{base_url}}"],
+              "path": ["logs", "video_downloader.log"],
+              "query": [
+                {
+                  "key": "lines",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"filename\": \"video_downloader.log\",\n    \"total_lines\": 43,\n    \"returned_lines\": 43,\n    \"requested_lines\": 50,\n    \"content\": \"2025-08-04 16:35:56,133 - video_downloader_api - INFO - [main.py:75] - === Video Downloader API v2.0.0 Starting ===\\n2025-08-04 16:35:56,133 - video_downloader_api - INFO - [main.py:76] - Logs directory: /app/logs\\n2025-08-04 16:35:56,134 - video_downloader_api - INFO - [main.py:77] - Downloads directory: /app/downloads\\n2025-08-04 16:37:05,704 - video_downloader_api - INFO - [main.py:298] - Starting download - Task ID: 8bcc75de-7c56-47a2-aadf-2c84c8956fb9, URL: https://www.youtube.com/watch?v=jNQXAC9IVRw, Quality: 360p, Type: single\\n\"}"
+        }
+      ]
+    },
+    {
+      "name": "View Error Log File",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/logs/errors.log?lines=20",
+          "host": ["{{base_url}}"],
+          "path": ["logs", "errors.log"],
+          "query": [
+            {
+              "key": "lines",
+              "value": "20",
+              "description": "Number of lines to retrieve from the end of the log file"
+            }
+          ]
+        },
+        "description": "View the last N lines of the error log file"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/logs/errors.log?lines=20",
+              "host": ["{{base_url}}"],
+              "path": ["logs", "errors.log"],
+              "query": [
+                {
+                  "key": "lines",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [],
+          "body": "{\n    \"filename\": \"errors.log\",\n    \"total_lines\": 34,\n    \"returned_lines\": 20,\n    \"requested_lines\": 20,\n    \"content\": \"2025-08-04 16:37:07,549 - video_downloader_api - ERROR - [main.py:361] - Task 8bcc75de-7c56-47a2-aadf-2c84c8956fb9: yt-dlp extraction failed: ERROR: [youtube] jNQXAC9IVRw: Sign in to confirm you're not a bot...\\n\"}"
         }
       ]
     },
