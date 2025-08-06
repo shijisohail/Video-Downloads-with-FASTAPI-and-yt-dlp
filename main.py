@@ -10,7 +10,7 @@ from enum import Enum
 import re
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import sys
 import tempfile
@@ -19,8 +19,12 @@ import shutil
 import requests
 import json
 import urllib.parse
+import asyncio
+import time
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 # Setup logging configuration with absolute paths
 # Get the directory where main.py is located
@@ -43,6 +47,7 @@ except Exception as e:
         print(f"❌ Fallback also failed: {e2}")
         # Use temp directory as last resort
         import tempfile
+
         LOGS_DIR = Path(tempfile.gettempdir()) / "video_downloader_logs"
         LOGS_DIR.mkdir(exist_ok=True)
         print(f"⚠️ Using temp directory for logs: {LOGS_DIR}")
@@ -104,12 +109,76 @@ except Exception as e:
         print(f"❌ Downloads directory fallback failed: {e2}")
         # Use temp directory as last resort
         import tempfile
+
         DOWNLOADS_DIR = Path(tempfile.gettempdir()) / "video_downloader_downloads"
         DOWNLOADS_DIR.mkdir(exist_ok=True)
         print(f"⚠️ Using temp directory for downloads: {DOWNLOADS_DIR}")
 
 # In-memory storage for download status (in production, use a database)
 download_status = {}
+
+# Initialize scheduler for cleanup tasks
+scheduler = AsyncIOScheduler()
+
+
+# Cleanup function to delete old files
+async def cleanup_old_files():
+    """Delete video files older than 5 hours"""
+    try:
+        logger.info("Starting cleanup of old video files...")
+        current_time = datetime.now()
+        cutoff_time = current_time - timedelta(hours=5)
+        deleted_count = 0
+        total_size_freed = 0
+
+        # Get all files in downloads directory
+        for file_path in DOWNLOADS_DIR.iterdir():
+            if file_path.is_file():
+                try:
+                    # Check file modification time
+                    file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+
+                    if file_mtime < cutoff_time:
+                        # Get file size before deletion
+                        file_size = file_path.stat().st_size
+
+                        # Delete the file
+                        file_path.unlink()
+                        deleted_count += 1
+                        total_size_freed += file_size
+
+                        logger.info(f"Deleted old file: {file_path.name} (created: {file_mtime})")
+
+                        # Also clean up from download_status if it exists
+                        # Extract task_id from filename if possible
+                        filename = file_path.name
+                        if '_' in filename:
+                            potential_task_id = filename.split('_')[0]
+                            if potential_task_id in download_status:
+                                # Update status to indicate file was cleaned up
+                                download_status[potential_task_id]['status'] = 'cleaned_up'
+                                download_status[potential_task_id][
+                                    'message'] = 'File automatically deleted after 5 hours'
+                                download_status[potential_task_id]['download_url'] = None
+                                logger.debug(f"Updated status for cleaned up task: {potential_task_id}")
+
+                except Exception as file_error:
+                    logger.error(f"Error processing file {file_path.name}: {file_error}")
+
+        if deleted_count > 0:
+            size_mb = total_size_freed / (1024 * 1024)
+            logger.info(f"Cleanup completed: {deleted_count} files deleted, {size_mb:.2f} MB freed")
+        else:
+            logger.info("Cleanup completed: No old files found")
+
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
+        logger.error(f"Cleanup traceback: {traceback.format_exc()}")
+
+
+def get_timestamp_for_filename() -> str:
+    """Generate timestamp string for filename"""
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 # Error handling functions
@@ -168,9 +237,9 @@ def categorize_error(error_message: str) -> dict:
         }
 
     elif (
-        "network" in error_lower
-        or "timeout" in error_lower
-        or "connection" in error_lower
+            "network" in error_lower
+            or "timeout" in error_lower
+            or "connection" in error_lower
     ):
         return {
             "category": "NETWORK_ERROR",
@@ -260,6 +329,7 @@ class DownloadResponse(BaseModel):
     download_type: str
     quality: str
     download_url: Optional[str] = None
+    expires_at: Optional[str] = None  # New field for expiration time
 
 
 class DownloadStatus(BaseModel):
@@ -277,12 +347,14 @@ class DownloadStatus(BaseModel):
     duration: Optional[int] = None
     format: Optional[str] = None
     thumbnail: Optional[str] = None
+    expires_at: Optional[str] = None  # New field for expiration time
+    created_at: Optional[str] = None  # New field for creation time
 
 
 def detect_browsers():
     """Detect available browsers for cookie extraction"""
     browsers = []
-    
+
     # Common browser paths and names (prioritize Chrome for better social media support)
     browser_configs = {
         "chrome": ["google-chrome", "chrome", "chromium", "google-chrome-stable"],
@@ -291,14 +363,14 @@ def detect_browsers():
         "safari": ["safari"],
         "opera": ["opera"],
     }
-    
+
     for browser_name, commands in browser_configs.items():
         for cmd in commands:
             if shutil.which(cmd):
                 browsers.append(browser_name)
                 logger.debug(f"Detected browser: {browser_name} (command: {cmd})")
                 break
-    
+
     logger.info(f"Available browsers for cookie extraction: {browsers}")
     return browsers
 
@@ -321,7 +393,7 @@ def create_social_media_headers(platform: str) -> dict:
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
     }
-    
+
     if platform == "instagram":
         base_headers.update({
             "X-Instagram-AJAX": "1",
@@ -341,7 +413,7 @@ def create_social_media_headers(platform: str) -> dict:
             "Referer": "https://www.tiktok.com/",
             "Origin": "https://www.tiktok.com",
         })
-    
+
     return base_headers
 
 
@@ -349,18 +421,18 @@ def extract_cookies_from_browser(platform: str, browsers: list) -> Optional[str]
     """Extract cookies from browser and save to temporary file"""
     if not browsers:
         return None
-    
+
     # Try each available browser
     for browser in browsers:
         try:
             logger.info(f"Attempting to extract {platform} cookies from {browser}")
-            
+
             # Create temporary cookie file
             temp_cookie_file = tempfile.NamedTemporaryFile(
                 mode='w', suffix=f'_{platform}_cookies.txt', delete=False
             )
             temp_cookie_file.close()
-            
+
             # Configure yt-dlp to extract cookies
             ydl_opts = {
                 "quiet": True,
@@ -371,7 +443,7 @@ def extract_cookies_from_browser(platform: str, browsers: list) -> Optional[str]
                 "extract_flat": True,
                 "simulate": True,  # Don't actually download
             }
-            
+
             # Use a simple URL to test cookie extraction
             test_urls = {
                 "youtube": "https://www.youtube.com",
@@ -381,31 +453,31 @@ def extract_cookies_from_browser(platform: str, browsers: list) -> Optional[str]
                 "facebook": "https://www.facebook.com",
                 "vimeo": "https://vimeo.com",
             }
-            
+
             test_url = test_urls.get(platform, "https://www.youtube.com")
-            
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
                     # This will extract cookies and save them
                     ydl.extract_info(test_url, download=False)
-                    
+
                     # Check if cookie file was created and has content
                     if os.path.exists(temp_cookie_file.name) and os.path.getsize(temp_cookie_file.name) > 0:
                         logger.info(f"Successfully extracted {platform} cookies from {browser}")
                         return temp_cookie_file.name
                     else:
                         os.unlink(temp_cookie_file.name)
-                        
+
                 except Exception as e:
                     logger.debug(f"Failed to extract cookies from {browser} for {platform}: {str(e)}")
                     if os.path.exists(temp_cookie_file.name):
                         os.unlink(temp_cookie_file.name)
                     continue
-                    
+
         except Exception as e:
             logger.debug(f"Browser {browser} cookie extraction failed: {str(e)}")
             continue
-    
+
     logger.warning(f"Could not extract {platform} cookies from any available browser")
     return None
 
@@ -430,11 +502,10 @@ def get_video_info(url: str):
             raise Exception(f"Failed to get video info: {str(e)}")
 
 
-
 async def download_video(url: str, task_id: str, download_type: str, quality: str):
     """Download video in background"""
     logger.info(f"Starting download - Task ID: {task_id}, URL: {url}, Quality: {quality}, Type: {download_type}")
-    
+
     try:
         # Update status to processing
         download_status[task_id]["status"] = "processing"
@@ -449,16 +520,17 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "p", ""
             )  # Remove 'p' from quality like '720p' -> '720'
             format_string = f"best[ext=mp4][height<={height}]/best[ext=mp4]/mp4[height<={height}]/mp4/best[height<={height}]/best"
-        
+
         logger.debug(f"Task {task_id}: Format string: {format_string}")
 
-        # Configure yt-dlp options for download
-        filename_template = f"{task_id}_%(title)s.%(ext)s"
-        
+        # Configure yt-dlp options for download with timestamp
+        timestamp = get_timestamp_for_filename()
+        filename_template = f"{task_id}_{timestamp}_%(title)s.%(ext)s"
+
         # Detect platform and find appropriate cookie file
         platform_info = validate_url_platform(url)
         platform = platform_info.get("platform", "unknown")
-        
+
         # Cookie file mapping for different platforms
         cookie_files = {
             "youtube": ["youtube.com_cookies.txt", "youtube_cookies.txt"],
@@ -470,11 +542,11 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             "dailymotion": ["dailymotion.com_cookies.txt", "dailymotion_cookies.txt"],
             "twitch": ["twitch.tv_cookies.txt", "twitch_cookies.txt"],
         }
-        
+
         # Find appropriate cookie file or extract from browser
         selected_cookie_file = None
         dynamic_cookie_file = None
-        
+
         # First, try existing cookie files with validation
         if platform in cookie_files:
             for cookie_filename in cookie_files[platform]:
@@ -493,7 +565,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                                 logger.debug(f"Task {task_id}: Cookie file {cookie_filename} has invalid format")
                     except Exception as e:
                         logger.debug(f"Task {task_id}: Error reading cookie file {cookie_filename}: {e}")
-        
+
         # If no platform-specific cookies found, try generic cookies file
         if not selected_cookie_file:
             generic_cookies = SCRIPT_DIR / "cookies.txt"
@@ -506,12 +578,12 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                             logger.info(f"Task {task_id}: Using valid generic cookies file")
                 except Exception as e:
                     logger.debug(f"Task {task_id}: Error reading generic cookie file: {e}")
-        
+
         # If no existing cookies, try to extract from browser dynamically
         if not selected_cookie_file:
             logger.info(f"Task {task_id}: No existing cookies found, attempting dynamic extraction for {platform}")
             available_browsers = detect_browsers()
-            
+
             if available_browsers:
                 dynamic_cookie_file = extract_cookies_from_browser(platform, available_browsers)
                 if dynamic_cookie_file:
@@ -519,7 +591,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                     logger.info(f"Task {task_id}: Successfully extracted dynamic cookies for {platform}")
                 else:
                     logger.warning(f"Task {task_id}: Dynamic cookie extraction failed for {platform}")
-        
+
         ydl_opts = {
             "outtmpl": str(DOWNLOADS_DIR / filename_template),
             "format": format_string,
@@ -579,7 +651,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             # Generic extractor fallbacks
             "default_search": "auto",
         }
-        
+
         # Add cookies if found
         if selected_cookie_file:
             ydl_opts["cookiefile"] = str(selected_cookie_file)
@@ -594,23 +666,24 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                         # Try the first available browser
                         primary_browser = available_browsers[0]
                         ydl_opts["cookiesfrombrowser"] = (primary_browser, None, None, None)
-                        logger.info(f"Task {task_id}: Attempting to use {primary_browser} browser cookies as final fallback")
+                        logger.info(
+                            f"Task {task_id}: Attempting to use {primary_browser} browser cookies as final fallback")
                     except Exception as e:
                         logger.debug(f"Task {task_id}: Browser cookies final fallback failed: {str(e)}")
-        
+
         logger.debug(f"Task {task_id}: yt-dlp options configured: {ydl_opts}")
         logger.info(f"Task {task_id}: Starting yt-dlp extraction for {url}")
 
         # Download the content with enhanced error handling and multi-server support
         download_successful = False
         last_error = None
-        
+
         # Platform-specific extraction strategies for better reliability
         extraction_strategies = []
-        
+
         # Strategy 1: Full extraction with all options
         extraction_strategies.append({"strategy": "full", "opts": ydl_opts.copy()})
-        
+
         # Strategy 2: Platform-specific optimized extraction
         if platform == "instagram":
             instagram_opts = ydl_opts.copy()
@@ -625,7 +698,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "no_check_certificates": True,
             })
             extraction_strategies.append({"strategy": "instagram_optimized", "opts": instagram_opts})
-            
+
         elif platform == "tiktok":
             tiktok_opts = ydl_opts.copy()
             tiktok_opts.update({
@@ -637,7 +710,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "extract_flat": False,
             })
             extraction_strategies.append({"strategy": "tiktok_optimized", "opts": tiktok_opts})
-            
+
         elif platform == "facebook":
             facebook_opts = ydl_opts.copy()
             facebook_opts.update({
@@ -649,7 +722,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 "extract_flat": False,
             })
             extraction_strategies.append({"strategy": "facebook_optimized", "opts": facebook_opts})
-        
+
         # Strategy 3: Simplified extraction for compatibility
         simplified_opts = {
             k: v for k, v in ydl_opts.items() if k in [
@@ -658,7 +731,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             ]
         }
         extraction_strategies.append({"strategy": "simple", "opts": simplified_opts})
-        
+
         # Strategy 4: Fallback with browser cookies only (for social media)
         if platform in ["instagram", "tiktok", "facebook", "twitter"]:
             available_browsers = detect_browsers()
@@ -674,7 +747,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                     "http_headers": ydl_opts["http_headers"],
                 }
                 extraction_strategies.append({"strategy": "browser_cookies", "opts": browser_opts})
-        
+
         # Strategy 5: Generic extractor fallback
         generic_opts = {
             "outtmpl": ydl_opts["outtmpl"],
@@ -685,13 +758,13 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             "socket_timeout": 30,
         }
         extraction_strategies.append({"strategy": "generic", "opts": generic_opts})
-        
+
         for strategy_info in extraction_strategies:
             strategy_name = strategy_info["strategy"]
             strategy_opts = strategy_info["opts"]
-            
+
             logger.info(f"Task {task_id}: Trying extraction strategy: {strategy_name}")
-            
+
             try:
                 with yt_dlp.YoutubeDL(strategy_opts) as ydl:
                     if download_type == "single":
@@ -702,21 +775,24 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                         info = ydl.extract_info(url, download=True)
                         # Count total and completed files
                         total_files = sum(1 for file in (info.get("entries") or []))
-                        completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+                        completed_files = len(DOWNLOADS_DIR.glob(f"{task_id}_{timestamp}_*"))
                         download_status[task_id]["total_files"] = total_files
                         download_status[task_id]["completed_files"] = completed_files
-                        logger.debug(f"Task {task_id}: Playlist/Album - Total: {total_files}, Completed: {completed_files}")
-                    
-                    logger.info(f"Task {task_id}: yt-dlp extraction completed successfully with {strategy_name} strategy")
-                    logger.debug(f"Task {task_id}: Video info - Title: {info.get('title', 'Unknown')}, Duration: {info.get('duration', 0)}s")
+                        logger.debug(
+                            f"Task {task_id}: Playlist/Album - Total: {total_files}, Completed: {completed_files}")
+
+                    logger.info(
+                        f"Task {task_id}: yt-dlp extraction completed successfully with {strategy_name} strategy")
+                    logger.debug(
+                        f"Task {task_id}: Video info - Title: {info.get('title', 'Unknown')}, Duration: {info.get('duration', 0)}s")
                     download_successful = True
                     break
-                    
+
             except Exception as ytdl_error:
                 logger.warning(f"Task {task_id}: Strategy {strategy_name} failed: {str(ytdl_error)}")
                 last_error = ytdl_error
                 continue
-        
+
         if not download_successful:
             logger.error(f"Task {task_id}: All extraction strategies failed")
             logger.error(f"Task {task_id}: Final error: {str(last_error)}")
@@ -724,7 +800,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             raise last_error
 
         # Find the downloaded file
-        downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+        downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_{timestamp}_*"))
         if not downloaded_files:
             raise Exception("Downloaded file not found")
 
@@ -740,6 +816,10 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             video_thumbnail = info.get("thumbnail")
             uploader = info.get("uploader", "Unknown")
 
+            # Calculate expiration time (5 hours from now)
+            expiration_time = datetime.now() + timedelta(hours=5)
+            creation_time = datetime.now()
+
             # Update status to completed with video info
             download_status[task_id].update(
                 {
@@ -752,6 +832,8 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                     "duration": video_duration,
                     "format": video_format,
                     "thumbnail": video_thumbnail,
+                    "expires_at": expiration_time.isoformat(),
+                    "created_at": creation_time.isoformat(),
                 }
             )
 
@@ -766,7 +848,7 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
             }
         )
         logger.error(f"Task {task_id}: Download failed with error: {str(e)}")
-    
+
     finally:
         # Clean up any temporary cookie files
         if dynamic_cookie_file and os.path.exists(dynamic_cookie_file):
@@ -777,9 +859,51 @@ async def download_video(url: str, task_id: str, download_type: str, quality: st
                 logger.warning(f"Task {task_id}: Failed to clean up temporary cookie file: {cleanup_error}")
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize scheduler and start cleanup job"""
+    try:
+        # Start the scheduler
+        scheduler.start()
+        logger.info("Scheduler started successfully")
+
+        # Add cleanup job to run every hour
+        scheduler.add_job(
+            cleanup_old_files,
+            CronTrigger(minute=0),  # Run at the top of every hour
+            id='cleanup_old_files',
+            name='Cleanup old video files',
+            replace_existing=True
+        )
+        logger.info("Cleanup job scheduled to run every hour")
+
+        # Also add a job that runs every 30 minutes for more frequent cleanup
+        scheduler.add_job(
+            cleanup_old_files,
+            CronTrigger(minute="0,30"),  # Run at 0 and 30 minutes of every hour
+            id='frequent_cleanup',
+            name='Frequent cleanup of old video files',
+            replace_existing=True
+        )
+        logger.info("Frequent cleanup job scheduled to run every 30 minutes")
+
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {str(e)}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown scheduler gracefully"""
+    try:
+        scheduler.shutdown()
+        logger.info("Scheduler shut down successfully")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {str(e)}")
+
+
 @app.post("/download", response_model=DownloadResponse)
 async def initiate_download(
-    request: VideoDownloadRequest, background_tasks: BackgroundTasks
+        request: VideoDownloadRequest, background_tasks: BackgroundTasks
 ):
     """Initiate video download from provided URL"""
     # Verify URL validity
@@ -797,6 +921,10 @@ async def initiate_download(
     # Generate unique task ID
     task_id = str(uuid.uuid4())
 
+    # Calculate expiration time (5 hours from now)
+    expiration_time = datetime.now() + timedelta(hours=5)
+    creation_time = datetime.now()
+
     # Initialize download status immediately
     download_status[task_id] = {
         "task_id": task_id,
@@ -808,6 +936,8 @@ async def initiate_download(
         "filename": None,
         "total_files": None,
         "completed_files": None,
+        "expires_at": expiration_time.isoformat(),
+        "created_at": creation_time.isoformat(),
     }
 
     # Start background download task
@@ -835,6 +965,7 @@ async def initiate_download(
         message=f"{request.download_type.title()} download initiated ({request.quality}) for: {str(request.url)}",
         download_type=request.download_type.value,
         quality=request.quality.value,
+        expires_at=expiration_time.isoformat(),
     )
 
 
@@ -845,40 +976,40 @@ async def get_download_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     status_data = download_status[task_id].copy()
-    
+
     try:
         # Clean up the status data to match the DownloadStatus model
         # Remove any extra fields that are not in the model
         valid_fields = {
             "task_id", "status", "message", "download_type", "quality",
             "download_url", "filename", "total_files", "completed_files",
-            "title", "url", "duration", "format", "thumbnail"
+            "title", "url", "duration", "format", "thumbnail", "expires_at", "created_at"
         }
-        
+
         # Filter status_data to only include valid fields
         filtered_data = {k: v for k, v in status_data.items() if k in valid_fields}
-        
+
         # Convert duration to integer if it exists and is a float
         if 'duration' in filtered_data and filtered_data['duration'] is not None:
             try:
                 filtered_data['duration'] = int(filtered_data['duration'])
             except (ValueError, TypeError):
                 filtered_data['duration'] = 0
-        
+
         # Only include metadata fields if download is completed
-        if filtered_data.get("status") != "completed":
+        if filtered_data.get("status") not in ["completed", "cleaned_up"]:
             # Remove metadata fields for non-completed downloads
             metadata_fields = ["title", "url", "duration", "format", "thumbnail"]
             for field in metadata_fields:
                 filtered_data.pop(field, None)
-        
+
         # Create and return the response
         return DownloadStatus(**filtered_data)
-        
+
     except Exception as e:
         logger.error(f"Error creating status response for task {task_id}: {str(e)}")
         logger.error(f"Status data: {status_data}")
-        
+
         # Return a safe fallback response
         fallback_response = {
             "task_id": task_id,
@@ -889,9 +1020,11 @@ async def get_download_status(task_id: str):
             "download_url": status_data.get("download_url"),
             "filename": status_data.get("filename"),
             "total_files": status_data.get("total_files"),
-            "completed_files": status_data.get("completed_files")
+            "completed_files": status_data.get("completed_files"),
+            "expires_at": status_data.get("expires_at"),
+            "created_at": status_data.get("created_at")
         }
-        
+
         return DownloadStatus(**fallback_response)
 
 
@@ -903,16 +1036,30 @@ async def download_file(task_id: str):
 
     status = download_status[task_id]
 
+    if status["status"] == "cleaned_up":
+        raise HTTPException(
+            status_code=410,
+            detail="File has been automatically deleted after 5 hours expiration period"
+        )
+
     if status["status"] != "completed":
         raise HTTPException(
             status_code=400,
             detail=f"Download not completed. Status: {status['status']}",
         )
 
-    # Find the downloaded file
-    downloaded_files = list(DOWNLOADS_DIR.glob(f"{task_id}_*"))
+    # Find the downloaded file - need to check for timestamp pattern
+    downloaded_files = []
+    for file_path in DOWNLOADS_DIR.glob(f"{task_id}_*"):
+        if file_path.is_file():
+            downloaded_files.append(file_path)
+
     if not downloaded_files:
-        raise HTTPException(status_code=404, detail="Downloaded file not found")
+        # File may have been cleaned up
+        download_status[task_id]["status"] = "cleaned_up"
+        download_status[task_id]["message"] = "File automatically deleted after expiration"
+        download_status[task_id]["download_url"] = None
+        raise HTTPException(status_code=410, detail="Downloaded file no longer available (expired)")
 
     file_path = downloaded_files[0]
     filename = status.get("filename", file_path.name)
@@ -922,16 +1069,34 @@ async def download_file(task_id: str):
     )
 
 
+@app.get("/cleanup")
+async def manual_cleanup():
+    """Manually trigger cleanup of old files"""
+    try:
+        await cleanup_old_files()
+        return {"status": "success", "message": "Cleanup completed successfully"}
+    except Exception as e:
+        logger.error(f"Manual cleanup failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
+
+
 @app.get("/")
 async def root():
     """API health check and information"""
     return {
         "message": "Video Downloader API",
         "version": f"{VERSION}",
+        "features": [
+            "Timestamped downloads",
+            "Automatic cleanup after 5 hours",
+            "Enhanced error handling",
+            "Multiple platform support"
+        ],
         "endpoints": {
             "POST /download": "Initiate video download",
             "GET /status/{task_id}": "Check download status",
             "GET /download/{task_id}": "Download completed video",
+            "GET /cleanup": "Manually trigger cleanup",
         },
     }
 
@@ -939,7 +1104,29 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    try:
+        # Check if scheduler is running
+        scheduler_status = "running" if scheduler.running else "stopped"
+
+        # Check downloads directory
+        downloads_accessible = DOWNLOADS_DIR.exists() and DOWNLOADS_DIR.is_dir()
+
+        # Count current files
+        current_files = len([f for f in DOWNLOADS_DIR.glob("*") if f.is_file()]) if downloads_accessible else 0
+
+        return {
+            "status": "healthy",
+            "scheduler_status": scheduler_status,
+            "downloads_directory_accessible": downloads_accessible,
+            "current_files_count": current_files,
+            "cleanup_enabled": True
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 
 @app.get("/logs")
@@ -956,7 +1143,7 @@ async def get_logs_info():
                     "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                     "url": f"/logs/{log_file.name}"
                 })
-        
+
         return {
             "logs_directory": str(LOGS_DIR),
             "available_logs": log_files,
@@ -971,19 +1158,19 @@ async def get_log_file(filename: str, lines: int = 100):
     """Get log file contents (last N lines)"""
     try:
         log_file_path = LOGS_DIR / filename
-        
+
         # Security check - only allow .log files
         if not filename.endswith(".log"):
             raise HTTPException(status_code=400, detail="Only .log files are allowed")
-        
+
         if not log_file_path.exists():
             raise HTTPException(status_code=404, detail="Log file not found")
-        
+
         # Read the last N lines
         with open(log_file_path, 'r', encoding='utf-8') as f:
             all_lines = f.readlines()
             last_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-        
+
         return {
             "filename": filename,
             "total_lines": len(all_lines),
