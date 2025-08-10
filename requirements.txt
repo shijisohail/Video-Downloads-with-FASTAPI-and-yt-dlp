@@ -1,3 +1,5 @@
+# For testing
+pytest
 aiofiles==23.2.0
 annotated-types==0.7.0
 anyio==3.7.1

@@ -28,22 +28,27 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
-COPY . .
+# Copy application code
+COPY app/ ./app/
+COPY config/ ./config/
+COPY scripts/ ./scripts/
+
+# Copy cookie files (if they exist)
+COPY cookies/ ./cookies/
 
 # Create required directories
-RUN mkdir -p downloads logs static \
-    && chmod 755 downloads logs static
+RUN mkdir -p downloads logs static cookies \
+    && chmod 755 downloads logs static cookies
 
-# Make cleanup script executable
-RUN chmod +x standalone_cleanup.py
+# Make scripts executable
+RUN chmod +x scripts/*.py
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && chown -R appuser:appuser /app
 
 # Setup cron job for cleanup (every 30 mins)
-RUN echo "*/30 * * * * cd /app && /usr/local/bin/python3 standalone_cleanup.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/cleanup-cron \
+RUN echo "*/30 * * * * cd /app && /usr/local/bin/python3 scripts/run_cleanup.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/cleanup-cron \
     && chmod 0644 /etc/cron.d/cleanup-cron \
     && crontab /etc/cron.d/cleanup-cron
 
@@ -53,7 +58,7 @@ RUN chmod +x /app/start.sh
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8888/health || exit 1
+    CMD curl -f http://localhost:8888/api/v1/health || exit 1
 
 # Expose port
 EXPOSE 8888

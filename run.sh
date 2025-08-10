@@ -19,14 +19,14 @@ echo "📚 Installing dependencies..."
 pip install -r requirements.txt
 
 # Create necessary directories
-mkdir -p downloads static
+mkdir -p downloads static logs cookies
 
 # Start the server
-echo "🌐 Starting FastAPI server on http://localhost:8000"
-echo "📖 API docs available at http://localhost:8000/docs"
-echo "🔍 Health check at http://localhost:8000/health"
+echo "🌐 Starting FastAPI server on http://localhost:8888"
+echo "📖 API docs available at http://localhost:8888/docs"
+echo "🔍 Health check at http://localhost:8888/api/v1/health"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
 
-python main.py
+python scripts/run_dev.py

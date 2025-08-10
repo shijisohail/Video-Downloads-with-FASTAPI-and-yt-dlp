@@ -1,248 +1,312 @@
 # Video Downloader API
 
-A FastAPI-based service that downloads videos from URLs and provides downloadable links with comprehensive metadata extraction. Perfect for mobile applications that need to download videos from various platforms.
+A comprehensive FastAPI-based video downloader service supporting multiple platforms including YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and more.
 
-## Features
+## 🚀 Features
 
-- **REST API**: Receive video URLs via REST endpoints
-- **Asynchronous Processing**: Downloads happen in background
-- **Status Tracking**: Check download progress with task IDs
-- **Direct Downloads**: Generate downloadable links for completed videos
-- **Multiple Platform Support**: Uses yt-dlp to support YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and many other platforms
-- **Video Metadata Extraction**: Extracts title, duration, format, thumbnail, and direct video URLs
-- **Quality Selection**: Choose from 360p, 480p, 720p, 1080p, 1440p, or best available
-- **Download Types**: Single video, playlist, or album downloads
-- **Thumbnail Downloads**: Automatically downloads video thumbnails
-- **Smart Error Handling**: Categorized error messages with helpful suggestions
-- **Clean Response Format**: Metadata fields only included for successful downloads
-- **Mobile-Friendly**: Designed for integration with mobile applications
+- **Multi-platform Support**: Download from YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, Dailymotion, Twitch
+- **Quality Selection**: Choose from 360p, 480p, 720p, 1080p, 1440p, or best available quality
+- **Download Types**: Single videos, playlists, and albums
+- **Automatic Cleanup**: Files are automatically deleted after 5 hours
+- **Background Processing**: Asynchronous download processing
+- **Comprehensive Logging**: Detailed logs for monitoring and debugging
+- **Health Monitoring**: Built-in health checks and status monitoring
+- **Docker Support**: Ready-to-use Docker container
+- **API Documentation**: Auto-generated Swagger/OpenAPI documentation
 
-## API Endpoints
+## 📁 Project Structure
 
-### 1. Initiate Download
-```http
-POST /download
-Content-Type: application/json
-
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "quality": "720p",
-  "download_type": "single"
-}
+```
+video_downloader_api/
+├── app/                          # Main application package
+│   ├── __init__.py
+│   ├── main.py                   # FastAPI application entry point
+│   ├── api/                      # API layer
+│   │   ├── __init__.py
+│   │   └── endpoints/            # API endpoints
+│   │       ├── __init__.py
+│   │       ├── download.py       # Download endpoints
+│   │       ├── status.py         # Status endpoints
+│   │       ├── health.py         # Health check endpoints
+│   │       ├── logs.py           # Log viewing endpoints
+│   │       └── cleanup.py        # Cleanup endpoints
+│   ├── core/                     # Core application components
+│   │   ├── __init__.py
+│   │   ├── config.py             # Configuration settings
+│   │   ├── storage.py            # Storage management
+│   │   └── scheduler.py          # Background task scheduler
+│   ├── models/                   # Data models
+│   │   ├── __init__.py
+│   │   └── download.py           # Download-related models
+│   ├── services/                 # Business logic services
+│   │   ├── __init__.py
+│   │   ├── download.py           # Download service
+│   │   └── cleanup.py            # Cleanup service
+│   └── utils/                    # Utility functions
+│       ├── __init__.py
+│       ├── browser.py            # Browser utilities
+│       └── validation.py         # Validation utilities
+├── config/                       # Configuration files
+│   └── logging.py                # Logging configuration
+├── scripts/                      # Utility scripts
+│   ├── run_dev.py                # Development server runner
+│   ├── run_prod.py               # Production server runner
+│   └── run_cleanup.py            # Standalone cleanup script
+├── tests/                        # Test files
+│   ├── __init__.py
+│   └── test_api.py               # API tests
+├── docs/                         # Documentation
+│   └── API.md                    # API documentation
+├── cookies/                      # Cookie files for platforms
+├── downloads/                    # Downloaded files (created automatically)
+├── logs/                         # Log files (created automatically)
+├── static/                       # Static files (created automatically)
+├── requirements.txt              # Python dependencies
+├── Dockerfile                    # Docker configuration
+├── start.sh                      # Docker start script
+├── run.sh                        # Development run script
+└── README.md                     # This file
 ```
 
-**Request Parameters:**
-- `url` (required): Video URL from supported platforms
-- `quality` (optional): Video quality - `360p`, `480p`, `720p` (default), `1080p`, `1440p`, or `best`
-- `download_type` (optional): `single` (default), `playlist`, or `album`
+## 🛠️ Installation
 
-**Response:**
-```json
-{
-  "task_id": "uuid-string",
-  "status": "initiated",
-  "message": "Single download initiated (720p) for: Video Title",
-  "download_type": "single",
-  "quality": "720p",
-  "download_url": null
-}
-```
+### Prerequisites
 
-### 2. Check Download Status
-```http
-GET /status/{task_id}
-```
+- Python 3.11+
+- FFmpeg
+- Docker (optional)
 
-**Response (Completed):**
-```json
-{
-  "task_id": "uuid-string",
-  "status": "completed",
-  "message": "Video downloaded successfully: Rick Astley - Never Gonna Give You Up",
-  "download_type": "single",
-  "quality": "720p",
-  "download_url": "/download/uuid-string",
-  "filename": "uuid-string_Rick Astley - Never Gonna Give You Up.mp4",
-  "total_files": null,
-  "completed_files": null,
-  "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
-  "url": "https://rr3---sn-ab5sznly.googlevideo.com/videoplayback?expire=1754012202...",
-  "duration": 213,
-  "format": "mp4",
-  "thumbnail": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp"
-}
-```
+### Local Development Setup
 
-**Response (Failed):**
-```json
-{
-  "task_id": "uuid-string",
-  "status": "failed",
-  "message": "This video is private or unavailable. Please check if the video is publicly accessible.",
-  "download_type": "single",
-  "quality": "720p",
-  "download_url": null,
-  "filename": null,
-  "total_files": null,
-  "completed_files": null
-}
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd video_downloader_api
+   ```
 
-**Status values:**
-- `initiated`: Download request received
-- `processing`: Video is being downloaded
-- `completed`: Download finished, file ready
-- `failed`: Download failed
+2. **Create virtual environment**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-### 3. Download Video File
-```http
-GET /download/{task_id}
-```
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Returns the video file for download when status is `completed`.
+4. **Run the development server**
+   ```bash
+   python scripts/run_dev.py
+   ```
 
-### 4. Health Check
-```http
-GET /health
-```
+### Docker Setup
 
-## Installation & Setup
+1. **Build the Docker image**
+   ```bash
+   docker build -t video-downloader-api .
+   ```
 
-### Option 1: Local Development
+2. **Run the container**
+   ```bash
+   docker run -d --name video-downloader-container \
+     -p 8888:8888 \
+     -v $(pwd)/downloads:/app/downloads \
+     -v $(pwd)/logs:/app/logs \
+     video-downloader-api
+   ```
 
-1. **Clone and navigate to project:**
-```bash
-cd video_downloader_api
-```
+## 🚀 Usage
 
-2. **Create virtual environment:**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+### API Endpoints
 
-3. **Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
+The API is available at `http://localhost:8888` with the following endpoints:
 
-4. **Run the server:**
-```bash
-python main.py
-```
+- **GET** `/` - API information
+- **GET** `/api/v1/health` - Health check
+- **POST** `/api/v1/download` - Initiate download
+- **GET** `/api/v1/status/{task_id}` - Check download status
+- **GET** `/api/v1/download/{task_id}` - Download completed file
+- **GET** `/api/v1/cleanup` - Manual cleanup trigger
+- **GET** `/api/v1/logs` - View available logs
+- **GET** `/api/v1/logs/{filename}` - View specific log file
 
-The API will be available at `http://localhost:8888`
+### Example Usage
 
-### Option 2: Docker
-
-1. **Build the Docker image:**
-```bash
-docker build -t video-downloader-api .
-```
-
-2. **Run the container:**
-```bash
-docker run -p 8888:8000 -v $(pwd)/downloads:/app/downloads video-downloader-api
-```
-
-## Usage Example
-
-### Using curl:
-
-1. **Start a download:**
-```bash
-curl -X POST "http://localhost:8888/download" \
+1. **Initiate a download**
+   ```bash
+   curl -X POST "http://localhost:8888/api/v1/download" \
      -H "Content-Type: application/json" \
-     -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "quality": "720p"}'
+     -d '{
+       "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+       "download_type": "single",
+       "quality": "720p"
+     }'
+   ```
+
+2. **Check download status**
+   ```bash
+   curl "http://localhost:8888/api/v1/status/{task_id}"
+   ```
+
+3. **Download the file**
+   ```bash
+   curl "http://localhost:8888/api/v1/download/{task_id}" -o video.mp4
+   ```
+
+### API Documentation
+
+Interactive API documentation is available at:
+- Swagger UI: `http://localhost:8888/docs`
+- ReDoc: `http://localhost:8888/redoc`
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root to customize settings:
+
+```env
+# Server settings
+HOST=0.0.0.0
+PORT=8888
+DEBUG=false
+
+# Cleanup settings
+CLEANUP_INTERVAL_HOURS=5
+CLEANUP_FREQUENCY_MINUTES=30
+
+# Download settings
+MAX_RETRIES=10
+SOCKET_TIMEOUT=60
+CHUNK_SIZE=10485760
 ```
 
-2. **Check status:**
+### Cookie Files
+
+For better download success rates, you can provide cookie files for different platforms in the `cookies/` directory:
+
+- `cookies/youtube.com_cookies.txt` - YouTube cookies
+- `cookies/instagram.com_cookies.txt` - Instagram cookies
+- `cookies/tiktok.com_cookies.txt` - TikTok cookies
+- `cookies/twitter.com_cookies.txt` - Twitter cookies
+- `cookies/facebook.com_cookies.txt` - Facebook cookies
+- `cookies/vimeo.com_cookies.txt` - Vimeo cookies
+
+## 🧪 Testing
+
+Run the test suite:
+
 ```bash
-curl "http://localhost:8888/status/YOUR_TASK_ID"
+# Install test dependencies
+pip install pytest pytest-asyncio httpx
+
+# Run tests
+pytest tests/
 ```
 
-3. **Download the file:**
+## 📊 Monitoring
+
+### Health Check
+
+Monitor the service health:
+
 ```bash
-curl -O "http://localhost:8888/download/YOUR_TASK_ID"
+curl http://localhost:8888/api/v1/health
 ```
 
-### Mobile App Integration:
+### Logs
 
-```javascript
-// 1. Initiate download
-const response = await fetch('http://your-api-url/download', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    url: 'https://www.youtube.com/watch?v=VIDEO_ID'
-  })
-});
+View application logs:
 
-const { task_id } = await response.json();
+```bash
+# List available logs
+curl http://localhost:8888/api/v1/logs
 
-// 2. Poll for completion
-const checkStatus = async () => {
-  const statusResponse = await fetch(`http://your-api-url/status/${task_id}`);
-  const status = await statusResponse.json();
-  
-  if (status.status === 'completed') {
-    // 3. Show download link
-    const downloadUrl = `http://your-api-url/download/${task_id}`;
-    showDownloadLink(downloadUrl);
-  } else if (status.status === 'processing') {
-    // Keep checking
-    setTimeout(checkStatus, 2000);
-  }
-};
-
-checkStatus();
+# View specific log file
+curl http://localhost:8888/api/v1/logs/video_downloader.log?lines=100
 ```
 
-## Supported Platforms
+### Metrics
 
-Thanks to yt-dlp, this API supports downloads from:
-- YouTube
-- Vimeo
-- Facebook
-- Instagram
-- TikTok
-- Twitter
-- And many more platforms
+The API provides basic metrics through the health endpoint:
+- Scheduler status
+- Downloads directory accessibility
+- Current file count
+- Cleanup status
 
-## Configuration
+## 🔒 Security Considerations
 
-### Video Quality
-By default, videos are downloaded in 720p or lower for faster processing. You can modify this in `main.py`:
+- **File Access**: Downloaded files are accessible via task IDs
+- **Rate Limiting**: Consider implementing rate limiting for production
+- **Authentication**: Add authentication for production deployments
+- **Input Validation**: All inputs are validated before processing
+- **Error Handling**: Comprehensive error handling prevents information leakage
 
-```python
-ydl_opts = {
-    'format': 'best[height<=1080]/best',  # Change to 1080p
-    # ... other options
-}
+## 🚨 Limitations
+
+- **Platform Restrictions**: Some platforms may block automated downloads
+- **File Storage**: Files are stored locally and automatically cleaned up
+- **Concurrent Downloads**: No built-in limit on concurrent downloads
+- **Authentication**: Some content may require platform-specific authentication
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+
+1. Check the API documentation at `/docs`
+2. Review the logs for error details
+3. Open an issue on GitHub
+4. Check the troubleshooting section below
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Download fails with "private video" error**
+   - Ensure the video is publicly accessible
+   - Try using cookie files for authentication
+
+2. **"Platform not supported" error**
+   - Check if the URL is from a supported platform
+   - Verify the URL format
+
+3. **Files not being cleaned up**
+   - Check if the scheduler is running
+   - Verify the cleanup interval settings
+   - Check the logs for cleanup errors
+
+4. **Docker container won't start**
+   - Ensure ports are not already in use
+   - Check Docker logs: `docker logs video-downloader-container`
+   - Verify volume permissions
+
+### Debug Mode
+
+Enable debug mode for more detailed logging:
+
+```bash
+export DEBUG=true
+python scripts/run_dev.py
 ```
 
-### Storage
-Downloaded files are stored in the `downloads/` directory. In production, consider:
-- Using cloud storage (AWS S3, Google Cloud Storage)
-- Implementing file cleanup policies
-- Adding file size limits
+### Manual Cleanup
 
-## API Documentation
+Trigger manual cleanup:
 
-Once running, visit `http://localhost:8000/docs` for interactive API documentation powered by Swagger UI.
-
-## Production Considerations
-
-1. **Database**: Replace in-memory storage with a proper database (PostgreSQL, MongoDB)
-2. **File Storage**: Use cloud storage for scalability
-3. **Rate Limiting**: Implement rate limiting to prevent abuse
-4. **Authentication**: Add API key or JWT authentication
-5. **Monitoring**: Add logging and monitoring
-6. **File Cleanup**: Implement automatic cleanup of old files
-7. **Error Handling**: Enhanced error handling and user feedback
-
-## License
-
-This project is open source and available under the MIT License.
+```bash
+curl http://localhost:8888/api/v1/cleanup
+```

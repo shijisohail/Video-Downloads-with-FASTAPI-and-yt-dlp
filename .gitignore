@@ -51,6 +51,10 @@ downloads/*
 static/*
 !static/.gitkeep
 
+# Cookies (keep directory but not content)
+cookies/*
+!cookies/.gitkeep
+
 # Logs
 *.log
 
