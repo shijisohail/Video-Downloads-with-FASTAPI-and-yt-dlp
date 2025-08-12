@@ -1,96 +1,39 @@
-name: CI/CD Pipeline
+name: CI CD Pipeline
 
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        default: 'Manual deployment'
 
 jobs:
-  test:
-    name: Basic Tests
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Basic syntax check
-      run: |
-        python -m py_compile app/main.py
-
-  build:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push'
-
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=sha,prefix=master-
-          type=raw,value=latest
-
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Deploy to server via SSH
+    - name: Show deployment info
+      run: |
+        echo "🔧 Deployment triggered by: ${{ github.event_name }}"
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "📝 Reason: ${{ github.event.inputs.reason }}"
+          echo "🌍 Environment: ${{ github.event.inputs.environment }}"
+        fi
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "🌟 Branch: ${{ github.ref_name }}"
+        
+    - name: Deploy via SSH
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -98,62 +41,42 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT || 22 }}
         script: |
-          echo "🚀 Starting deployment of video downloader API"
+          echo "🚀 Starting deployment..."
           
-          # Navigate to application directory
-          cd /home/${{ secrets.SERVER_USER }}/video_downloader_api || {
-            echo "❌ Application directory not found"
-            exit 1
-          }
+          # Go to project directory
+          cd /home/ubuntu/Video-Downloads-with-FASTAPI-and-yt-dlp
           
-          # Pull latest code
+          # Pull latest changes
           echo "📥 Pulling latest code..."
           git pull origin master
           
-          # Login to GitHub Container Registry
-          echo "🔐 Logging into container registry..."
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Stop existing container
+          echo "🛑 Stopping container..."
+          docker stop video-api || echo "No container to stop"
+          docker rm video-api || echo "No container to remove"
           
-          # Pull the latest Docker image
-          echo "📦 Pulling Docker image..."
-          docker pull ghcr.io/${{ github.repository }}:latest
+          # Build new image
+          echo "🔨 Building Docker image..."
+          docker build -t video-api .
           
-          # Stop and remove existing container
-          echo "🛑 Stopping existing container..."
-          docker stop video-api || echo "No existing container to stop"
-          docker rm video-api || echo "No existing container to remove"
-          
-          # Start new container
-          echo "🚀 Starting new container..."
+          # Run new container
+          echo "🚀 Starting container..."
           docker run -d \
             --name video-api \
             --restart unless-stopped \
             -p 8888:8888 \
-            -v /home/${{ secrets.SERVER_USER }}/video_downloader_api/downloaded_videos:/app/downloaded_videos \
-            -v /home/${{ secrets.SERVER_USER }}/video_downloader_api/logs:/app/logs \
-            -v /home/${{ secrets.SERVER_USER }}/video_downloader_api/cookies:/app/cookies \
-            ghcr.io/${{ github.repository }}:latest
+            -v $(pwd)/downloaded_videos:/app/downloaded_videos \
+            -v $(pwd)/logs:/app/logs \
+            -v $(pwd)/cookies:/app/cookies \
+            video-api
           
-          # Clean up old Docker images
-          echo "🧹 Cleaning up old images..."
-          docker image prune -a -f --filter "until=24h"
-          
-          echo "✅ Deployment completed successfully"
-
-    - name: Health check
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
-        script: |
-          echo "⏳ Waiting for application to start..."
+          # Wait and check
+          echo "⏳ Waiting for app to start..."
           sleep 30
           
-          echo "🔍 Checking application health..."
+          # Health check
           if curl -f http://localhost:8888/api/v1/health; then
-            echo "✅ Application is healthy and running!"
+            echo "✅ Deployment successful!"
           else
             echo "❌ Health check failed!"
             exit 1
