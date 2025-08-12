@@ -228,6 +228,8 @@ class DownloadService:
             strategies.extend([
                 ("instagram_mobile", self._get_instagram_mobile_options()),
                 ("instagram_web", self._get_instagram_web_options()),
+                ("instagram_anonymous", self._get_instagram_anonymous_options()),
+                ("instagram_api_bypass", self._get_instagram_api_bypass_options()),
                 ("browser_cookies", self._get_browser_cookie_options(platform)),
                 ("generic_fallback", self._get_generic_options()),
             ])
@@ -248,12 +250,16 @@ class DownloadService:
         elif platform == "youtube":
             strategies.extend([
                 ("youtube_android_tv", self._get_youtube_android_tv_options()),
+                ("youtube_music", self._get_youtube_music_options()),
                 ("youtube_unrestricted", self._get_youtube_unrestricted_options()),
+                ("youtube_android_testsuite", self._get_youtube_android_testsuite_options()),
+                ("youtube_media_connect", self._get_youtube_media_connect_options()),
                 ("youtube_public_content", self._get_youtube_public_content_options()),
                 ("youtube_android", self._get_youtube_android_options()),
                 ("youtube_web", self._get_youtube_web_options()),
                 ("youtube_ios", self._get_youtube_ios_options()),
                 ("youtube_web_embedded", self._get_youtube_web_embedded_options()),
+                ("youtube_no_auth", self._get_youtube_no_auth_options()),
                 ("browser_cookies", self._get_browser_cookie_options(platform)),
                 ("youtube_age_bypass", self._get_youtube_age_bypass_options()),
                 ("generic_fallback", self._get_generic_options()),
@@ -656,6 +662,128 @@ class DownloadService:
                 "Cache-Control": "no-cache",
                 "Pragma": "no-cache",
             },
+        }
+    
+    def _get_youtube_music_options(self) -> dict:
+        """YouTube Music client - often has fewer restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_music"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.music/5.26.1 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "21",
+                "X-YouTube-Client-Version": "5.26.1",
+            },
+        }
+    
+    def _get_youtube_android_testsuite_options(self) -> dict:
+        """YouTube Android testsuite client - bypasses many restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_testsuite"],
+                    "player_skip": ["configs", "webpage"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "30",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            "format": "best[ext=mp4]/mp4/best",
+        }
+    
+    def _get_youtube_media_connect_options(self) -> dict:
+        """YouTube Media Connect client - for content creators (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["media_connect_frontend"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "X-YouTube-Client-Name": "95",
+                "X-YouTube-Client-Version": "1.0",
+            },
+        }
+    
+    def _get_youtube_no_auth_options(self) -> dict:
+        """YouTube with minimal authentication requirements (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_embedded"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "format": "worst[ext=mp4]/worst",  # Try lower quality first
+            "age_limit": None,
+            "geo_bypass": True,
+            "no_check_certificate": True,
+            "http_headers": {
+                "Accept": "*/*",
+                "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            },
+        }
+    
+    def _get_instagram_anonymous_options(self) -> dict:
+        """Instagram anonymous access options (2024)."""
+        return {
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+            },
+            "extractor_args": {
+                "instagram": {
+                    "api_version": "v1.0",
+                    "extract_flat": False,
+                }
+            },
+            "format": "best[ext=mp4]/mp4/best",
+        }
+    
+    def _get_instagram_api_bypass_options(self) -> dict:
+        """Instagram API bypass options for public content (2024)."""
+        return {
+            "user_agent": "InstagramBot/1.0 (+https://www.instagram.com/)",
+            "http_headers": {
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-IG-App-ID": "936619743392459",
+                "X-Instagram-AJAX": "1",
+                "X-CSRFToken": "missing",
+                "X-IG-WWW-Claim": "0",
+                "DNT": "1",
+                "Connection": "keep-alive",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            },
+            "extractor_args": {
+                "instagram": {
+                    "api_version": "v17.0",
+                    "use_public_endpoint": True,
+                    "bypass_login": True,
+                }
+            },
+            "format": "best[ext=mp4]/best",
+            "sleep_interval": 2,
         }
     
     def _get_generic_options(self) -> dict:
