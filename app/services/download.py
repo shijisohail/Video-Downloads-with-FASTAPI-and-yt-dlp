@@ -169,7 +169,7 @@ class DownloadService:
         return base_headers
 
     def _get_cookie_file(self, platform: str) -> Path:
-        """Get cookie file for platform."""
+        """Get cookie file for platform if valid, otherwise return None."""
         cookie_files = {
             "youtube": ["youtube.com_cookies.txt", "youtube_cookies.txt"],
             "instagram": ["instagram.com_cookies.txt", "instagram_cookies.txt"],
@@ -183,9 +183,45 @@ class DownloadService:
             for cookie_filename in cookie_files[platform]:
                 cookie_path = settings.COOKIE_DIR / cookie_filename
                 if cookie_path.exists() and cookie_path.stat().st_size > 100:
-                    return cookie_path
+                    # Validate cookie file format
+                    if self._is_valid_cookie_file(cookie_path):
+                        return cookie_path
+                    else:
+                        logger.warning(f"Cookie file {cookie_path} exists but has invalid format, skipping")
 
         return None
+    
+    def _is_valid_cookie_file(self, cookie_path: Path) -> bool:
+        """Check if cookie file is in valid Netscape format."""
+        try:
+            with open(cookie_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                
+            # Empty file is invalid
+            if not content:
+                return False
+                
+            # Check for Netscape format header or valid cookie lines
+            lines = content.split('\n')
+            valid_lines = 0
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                # Valid Netscape cookie format: domain\tflag\tpath\tsecure\texpires\tname\tvalue
+                parts = line.split('\t')
+                if len(parts) >= 7:
+                    valid_lines += 1
+                elif len(parts) >= 3:  # More lenient check for some cookie formats
+                    valid_lines += 1
+            
+            return valid_lines > 0
+            
+        except Exception as e:
+            logger.warning(f"Error validating cookie file {cookie_path}: {e}")
+            return False
 
     async def _perform_download(self, url: str, ydl_opts: dict, download_type: str):
         """Perform the actual download with multiple fallback strategies."""
@@ -249,6 +285,13 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
+                # Cookie-free strategies first
+                ("youtube_no_cookies_android_tv", self._get_youtube_no_cookies_android_tv_options()),
+                ("youtube_no_cookies_testsuite", self._get_youtube_no_cookies_testsuite_options()),
+                ("youtube_no_cookies_music", self._get_youtube_no_cookies_music_options()),
+                ("youtube_no_cookies_embedded", self._get_youtube_no_cookies_embedded_options()),
+                
+                # Original strategies (may try to use cookies)
                 ("youtube_android_tv", self._get_youtube_android_tv_options()),
                 ("youtube_music", self._get_youtube_music_options()),
                 ("youtube_unrestricted", self._get_youtube_unrestricted_options()),
@@ -786,6 +829,79 @@ class DownloadService:
             "sleep_interval": 2,
         }
     
+    def _get_youtube_no_cookies_android_tv_options(self) -> dict:
+        """YouTube Android TV without cookies - most reliable (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_tv"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.tv.youtube/4.40.30 (Linux; U; Android 9; sm-t720; Build/PPR1.180610.011) gzip",
+            # Explicitly disable cookies
+            "cookiefile": None,
+            "no_cookies": True,
+        }
+    
+    def _get_youtube_no_cookies_testsuite_options(self) -> dict:
+        """YouTube TestSuite without cookies - bypasses most restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_testsuite"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "30",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            # Explicitly disable cookies
+            "cookiefile": None,
+            "no_cookies": True,
+            "format": "best[ext=mp4]/mp4/best",
+        }
+    
+    def _get_youtube_no_cookies_music_options(self) -> dict:
+        """YouTube Music without cookies - fewer restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_music"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.music/5.26.1 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "21",
+                "X-YouTube-Client-Version": "5.26.1",
+            },
+            # Explicitly disable cookies
+            "cookiefile": None,
+            "no_cookies": True,
+        }
+    
+    def _get_youtube_no_cookies_embedded_options(self) -> dict:
+        """YouTube Embedded without cookies - works for most public videos (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_embedded_player"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Origin": "https://www.youtube.com",
+                "Referer": "https://www.youtube.com/",
+            },
+            # Explicitly disable cookies
+            "cookiefile": None,
+            "no_cookies": True,
+        }
+    
     def _get_generic_options(self) -> dict:
         """Generic extraction options as last resort."""
         return {
@@ -801,6 +917,9 @@ class DownloadService:
                 "Connection": "keep-alive",
                 "Upgrade-Insecure-Requests": "1",
             },
+            # Explicitly disable cookies for generic fallback
+            "cookiefile": None,
+            "no_cookies": True,
         }
 
     async def _update_download_status(self, task_id: str, info: dict, downloaded_file: Path):
