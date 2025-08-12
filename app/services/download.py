@@ -293,13 +293,18 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # Most reliable strategies first - no cookies approach
+                # Most reliable strategies first - VR client often bypasses restrictions
+                ("youtube_android_vr_no_cookies", self._get_youtube_android_vr_no_cookies_options()),
                 ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
                 ("youtube_android_tv_no_cookies", self._get_youtube_android_tv_no_cookies_options()),
                 ("youtube_android_music_no_cookies", self._get_youtube_android_music_no_cookies_options()),
                 ("youtube_ios_music_no_cookies", self._get_youtube_ios_music_no_cookies_options()),
                 ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
                 ("youtube_web_embedded_no_cookies", self._get_youtube_web_embedded_no_cookies_options()),
+                
+                # Additional VR and specialized clients
+                ("youtube_android_producer", self._get_youtube_android_producer_options()),
+                ("youtube_android_unplugged", self._get_youtube_android_unplugged_options()),
                 
                 # Fallback with potentially more permissive settings
                 ("youtube_android_creator", self._get_youtube_android_creator_options()),
@@ -1072,6 +1077,65 @@ class DownloadService:
             "cookiefile": None,
             "no_cookies": True,
             "format": "best[ext=mp4]/mp4/best",
+        }
+    
+    def _get_youtube_android_vr_no_cookies_options(self) -> dict:
+        """YouTube Android VR client - highly effective at bypassing bot detection (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_vr"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.vr.oculus/1.2.28 (Linux; U; Android 7.1.2) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "28",
+                "X-YouTube-Client-Version": "1.2.28",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "geo_bypass": True,
+            "format": "best[ext=mp4]/mp4/best",
+        }
+    
+    def _get_youtube_android_producer_options(self) -> dict:
+        """YouTube Android Producer client - for content creators."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_producer"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.producer/0.20.16 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "91",
+                "X-YouTube-Client-Version": "0.20.16",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+        }
+    
+    def _get_youtube_android_unplugged_options(self) -> dict:
+        """YouTube TV Android Unplugged client - for YouTube TV content."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_unplugged"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.unplugged/6.36 (Linux; U; Android 9; SM-G965F Build/PPR1.180610.011) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "29",
+                "X-YouTube-Client-Version": "6.36",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
         }
     
     def _get_generic_options(self) -> dict:
