@@ -26,7 +26,11 @@ echo "⏰ Starting cron daemon..."
 
 # Check if yt-dlp is working
 echo "🔍 Testing yt-dlp installation..."
-su appuser -c "python -c 'import yt_dlp; print(f\"yt-dlp version: {yt_dlp.version.__version__}\")'"
+su appuser -c "python -c 'import yt_dlp; print(f\"yt-dlp version: {yt_dlp.version.__version__}\")'" 
+
+# Setup cookies and extraction configurations automatically
+echo "🍪 Setting up authentication cookies and extraction configs..."
+su appuser -c "cd /app && python scripts/auto_setup_cookies.py server" || echo "⚠️  Cookie setup failed, continuing with defaults"
 
 # Start the FastAPI application as appuser
 echo "🚀 Starting FastAPI application as appuser..."

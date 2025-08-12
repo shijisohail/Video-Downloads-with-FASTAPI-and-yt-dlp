@@ -248,6 +248,8 @@ class DownloadService:
         elif platform == "youtube":
             strategies.extend([
                 ("youtube_android_tv", self._get_youtube_android_tv_options()),
+                ("youtube_unrestricted", self._get_youtube_unrestricted_options()),
+                ("youtube_public_content", self._get_youtube_public_content_options()),
                 ("youtube_android", self._get_youtube_android_options()),
                 ("youtube_web", self._get_youtube_web_options()),
                 ("youtube_ios", self._get_youtube_ios_options()),
@@ -617,6 +619,42 @@ class DownloadService:
             "http_headers": {
                 "X-YouTube-Client-Name": "3",
                 "X-YouTube-Client-Version": "17.31.35",
+            },
+        }
+    
+    def _get_youtube_unrestricted_options(self) -> dict:
+        """YouTube unrestricted access options for public content (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_testsuite"],
+                    "player_skip": ["configs", "js"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "30",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            "age_limit": None,
+            "geo_bypass": True,
+        }
+    
+    def _get_youtube_public_content_options(self) -> dict:
+        """YouTube public content access without authentication (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_creator"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
             },
         }
     
