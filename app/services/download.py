@@ -293,29 +293,23 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # Modern 2024 strategies first (yt-dlp recommended)
+                # Most reliable strategies first - no cookies approach
+                ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
+                ("youtube_android_tv_no_cookies", self._get_youtube_android_tv_no_cookies_options()),
+                ("youtube_android_music_no_cookies", self._get_youtube_android_music_no_cookies_options()),
+                ("youtube_ios_music_no_cookies", self._get_youtube_ios_music_no_cookies_options()),
                 ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
+                ("youtube_web_embedded_no_cookies", self._get_youtube_web_embedded_no_cookies_options()),
                 
-                # Cookie-free strategies
-                ("youtube_no_cookies_android_tv", self._get_youtube_no_cookies_android_tv_options()),
-                ("youtube_no_cookies_testsuite", self._get_youtube_no_cookies_testsuite_options()),
-                ("youtube_no_cookies_music", self._get_youtube_no_cookies_music_options()),
-                ("youtube_no_cookies_embedded", self._get_youtube_no_cookies_embedded_options()),
+                # Fallback with potentially more permissive settings
+                ("youtube_android_creator", self._get_youtube_android_creator_options()),
+                ("youtube_web_creator", self._get_youtube_web_creator_options()),
+                ("youtube_tvhtml5_no_cookies", self._get_youtube_tvhtml5_no_cookies_options()),
                 
-                # Original strategies (may try to use cookies)
+                # Original strategies as final fallback
                 ("youtube_android_tv", self._get_youtube_android_tv_options()),
-                ("youtube_music", self._get_youtube_music_options()),
-                ("youtube_unrestricted", self._get_youtube_unrestricted_options()),
-                ("youtube_android_testsuite", self._get_youtube_android_testsuite_options()),
-                ("youtube_media_connect", self._get_youtube_media_connect_options()),
-                ("youtube_public_content", self._get_youtube_public_content_options()),
                 ("youtube_android", self._get_youtube_android_options()),
                 ("youtube_web", self._get_youtube_web_options()),
-                ("youtube_ios", self._get_youtube_ios_options()),
-                ("youtube_web_embedded", self._get_youtube_web_embedded_options()),
-                ("youtube_no_auth", self._get_youtube_no_auth_options()),
-                ("browser_cookies", self._get_browser_cookie_options(platform)),
-                ("youtube_age_bypass", self._get_youtube_age_bypass_options()),
                 ("generic_fallback", self._get_generic_options()),
             ])
         else:
@@ -945,6 +939,139 @@ class DownloadService:
             # Additional mobile web optimizations
             "age_limit": None,
             "geo_bypass": True,
+        }
+    
+    def _get_youtube_android_testsuite_no_cookies_options(self) -> dict:
+        """YouTube Android TestSuite without cookies - most reliable for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_testsuite"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "30",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "format": "best[ext=mp4]/mp4/best",
+            "age_limit": None,
+            "geo_bypass": True,
+        }
+    
+    def _get_youtube_android_music_no_cookies_options(self) -> dict:
+        """YouTube Android Music without cookies - reliable for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_music"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.music/5.26.1 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "21",
+                "X-YouTube-Client-Version": "5.26.1",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+        }
+    
+    def _get_youtube_ios_music_no_cookies_options(self) -> dict:
+        """YouTube iOS Music without cookies - reliable for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["ios_music"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.ios.youtube.music/5.21 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+            "http_headers": {
+                "X-YouTube-Client-Name": "26",
+                "X-YouTube-Client-Version": "5.21",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+        }
+    
+    def _get_youtube_web_embedded_no_cookies_options(self) -> dict:
+        """YouTube Web Embedded without cookies - good for public content."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_embedded_player"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Origin": "https://www.youtube.com",
+                "Referer": "https://www.youtube.com/",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+        }
+    
+    def _get_youtube_android_creator_options(self) -> dict:
+        """YouTube Android Creator - for content creators."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_creator"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.creator/22.30.100 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "14",
+                "X-YouTube-Client-Version": "22.30.100",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+        }
+    
+    def _get_youtube_web_creator_options(self) -> dict:
+        """YouTube Web Creator - for content creators."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_creator"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "X-YouTube-Client-Name": "62",
+                "X-YouTube-Client-Version": "1.0",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+        }
+    
+    def _get_youtube_tvhtml5_no_cookies_options(self) -> dict:
+        """YouTube TV HTML5 without cookies - for smart TV access."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["tvhtml5_simply_embedded_player"],
+                    "player_skip": ["configs", "js"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (SMART-TV; LINUX; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 85.0.4183.93/6.0 TV Safari/537.36",
+            "http_headers": {
+                "X-YouTube-Client-Name": "85",
+                "X-YouTube-Client-Version": "2.0",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "format": "best[ext=mp4]/mp4/best",
         }
     
     def _get_generic_options(self) -> dict:
