@@ -19,7 +19,7 @@ from app.core.storage import download_storage, file_manager
 from app.utils.validation import categorize_error, validate_url_platform
 from app.utils.browser import detect_browsers, extract_cookies_from_browser
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("video_downloader_api")
 
 class DownloadService:
     """Service for handling video downloads."""
@@ -94,8 +94,8 @@ class DownloadService:
             "writesubtitles": False,
             "writeautomaticsub": False,
             "ignoreerrors": False,
-            "quiet": True,
-            "no_warnings": True,
+            "quiet": False,  # Enable yt-dlp output for debugging
+            "no_warnings": False,  # Enable warnings for debugging
             "extractflat": False,
             "writethumbnail": True,
             "prefer_ffmpeg": True,

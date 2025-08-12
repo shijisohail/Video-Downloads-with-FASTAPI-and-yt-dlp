@@ -9,10 +9,10 @@ import logging
 from app.api.endpoints import download, status, health, logs, cleanup
 from app.core.scheduler import scheduler
 from app.core.config import settings
+from config.logging import setup_logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure logging using our custom setup
+logger = setup_logging()
 
 # Create FastAPI app
 app = FastAPI(
