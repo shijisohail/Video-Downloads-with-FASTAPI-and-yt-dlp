@@ -270,6 +270,8 @@ class DownloadService:
         
         if platform == "instagram":
             strategies.extend([
+                # Prefer cookie-enabled web first if cookies exist
+                ("instagram_web_with_cookies", self._get_instagram_web_with_cookies_options()),
                 ("instagram_mobile", self._get_instagram_mobile_options()),
                 ("instagram_web", self._get_instagram_web_options()),
                 ("instagram_anonymous", self._get_instagram_anonymous_options()),
@@ -293,22 +295,27 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # 2024 Priority: mweb with maximum bot-bypass features
+                # Prioritize cookie-enabled strategies to leverage server cookies
+                ("youtube_web_with_cookies", self._get_youtube_web_with_cookies_options()),
+                ("youtube_android_with_cookies", self._get_youtube_android_with_cookies_options()),
+                ("youtube_mweb_with_cookies", self._get_youtube_mweb_with_cookies_options()),
+
+                # 2024 Priority: mweb with maximum bot-bypass features (no cookies)
                 ("youtube_mweb_anti_bot", self._get_youtube_mweb_anti_bot_options()),
                 ("youtube_mweb_bypass", self._get_youtube_mweb_bypass_options()),
                 
-                # Most reliable VR and specialized clients for 2024
+                # Most reliable VR and specialized clients for 2024 (no cookies)
                 ("youtube_android_vr_enhanced", self._get_youtube_android_vr_enhanced_options()),
                 ("youtube_android_testsuite_enhanced", self._get_youtube_android_testsuite_enhanced_options()),
                 ("youtube_android_tv_enhanced", self._get_youtube_android_tv_enhanced_options()),
                 ("youtube_android_music_enhanced", self._get_youtube_android_music_enhanced_options()),
                 
-                # Experimental 2024 bypass strategies
+                # Experimental 2024 bypass strategies (no cookies)
                 ("youtube_ios_safari_bypass", self._get_youtube_ios_safari_bypass_options()),
                 ("youtube_android_creator_bypass", self._get_youtube_android_creator_bypass_options()),
                 ("youtube_tvhtml5_embed_bypass", self._get_youtube_tvhtml5_embed_bypass_options()),
                 
-                # Original working strategies
+                # Original no-cookie strategies
                 ("youtube_android_vr_no_cookies", self._get_youtube_android_vr_no_cookies_options()),
                 ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
                 ("youtube_android_tv_no_cookies", self._get_youtube_no_cookies_android_tv_options()),
@@ -527,6 +534,39 @@ class DownloadService:
                 "Upgrade-Insecure-Requests": "1"
             },
         }
+
+    def _get_instagram_web_with_cookies_options(self) -> dict:
+        """Instagram web using cookies - preferred when cookies available."""
+        return {
+            # Base config will attach cookiefile if present
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "Origin": "https://www.instagram.com",
+                "Referer": "https://www.instagram.com/",
+            },
+            "format": "best[ext=mp4]/mp4/best",
+        }
+        """Instagram web extraction options (2024)."""
+        return {
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "max-age=0",
+                "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+                "Sec-Ch-Ua-Mobile": "?0",
+                "Sec-Ch-Ua-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1"
+            },
+        }
     
     def _get_facebook_web_options(self) -> dict:
         """Facebook web extraction options (2024)."""
@@ -652,6 +692,64 @@ class DownloadService:
         }
     
     def _get_youtube_web_embedded_options(self) -> dict:
+        """YouTube web embedded player options - bypasses some restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_embedded_player"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Origin": "https://www.youtube.com",
+                "Referer": "https://www.youtube.com/",
+            },
+        }
+
+    def _get_youtube_web_with_cookies_options(self) -> dict:
+        """YouTube Web with cookies - uses server cookie file if present."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web"],
+                    "player_skip": ["configs"],
+                }
+            },
+            # Do NOT set no_cookies; base config will attach cookiefile
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "format": "best[ext=mp4]/mp4/best",
+        }
+
+    def _get_youtube_android_with_cookies_options(self) -> dict:
+        """YouTube Android with cookies - leverages cookies and Android client."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "3",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            "format": "best[ext=mp4]/mp4/best",
+        }
+
+    def _get_youtube_mweb_with_cookies_options(self) -> dict:
+        """YouTube Mobile Web with cookies - may work with logged-in cookies."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["mweb"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Linux; Android 11; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "format": "best[ext=mp4]/mp4/best",
+        }
         """YouTube web embedded player options - bypasses some restrictions (2024)."""
         return {
             "extractor_args": {
