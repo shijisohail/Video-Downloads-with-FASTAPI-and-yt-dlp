@@ -1,14 +1,14 @@
 {
   "info": {
-    "name": "Video Downloader API v2.0",
-    "description": "Enhanced API for downloading videos with metadata extraction, quality selection, and multi-platform support",
-    "version": "2.0.0",
+    "name": "Video Downloader API v2.1",
+    "description": "FastAPI-based service for downloading videos from various platforms with automatic cleanup and status tracking",
+    "version": "2.1.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "base_url",
-      "value": "http://3.19.120.236:8888",
+      "value": "http://localhost:8888/api/v1",
       "type": "string"
     },
     {
@@ -44,44 +44,18 @@
           },
           "status": "OK",
           "code": 200,
-          "header": [],
-          "body": "{\n    \"status\": \"healthy\"\n}"
-        }
-      ]
-    },
-    {
-      "name": "API Information",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/",
-          "host": ["{{base_url}}"],
-          "path": [""]
-        },
-        "description": "Get API version and available endpoints"
-      },
-      "response": [
-        {
-          "name": "Success",
-          "originalRequest": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/",
-              "host": ["{{base_url}}"],
-              "path": [""]
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
             }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"message\": \"Video Downloader API\",\n    \"version\": \"2.0.0\",\n    \"endpoints\": {\n        \"POST /download\": \"Initiate video download\",\n        \"GET /status/{task_id}\": \"Check download status\",\n        \"GET /download/{task_id}\": \"Download completed video\"\n    }\n}"
+          ],
+          "body": "{\n    \"status\": \"healthy\",\n    \"scheduler_status\": \"running\",\n    \"downloads_directory_accessible\": true,\n    \"current_files_count\": 12,\n    \"cleanup_enabled\": true,\n    \"version\": \"2.1.0\"\n}"
         }
       ]
     },
     {
-      "name": "Download Video - Standard Quality",
+      "name": "Download YouTube Video",
       "event": [
         {
           "listen": "test",
@@ -94,7 +68,8 @@
               "        pm.expect(response.task_id).to.be.a('string');",
               "    });",
               "}"
-            ]
+            ],
+            "type": "text/javascript"
           }
         }
       ],
@@ -108,14 +83,14 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=iq_6dwYr6YE\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+          "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/download",
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download a single video in standard 720p quality"
+        "description": "Download a video from YouTube"
       },
       "response": [
         {
@@ -130,7 +105,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=iq_6dwYr6YE\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
+              "raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/download",
@@ -140,38 +115,18 @@
           },
           "status": "OK",
           "code": 200,
-          "header": [],
-          "body": "{\n    \"task_id\": \"df3c558b-2759-4d87-9383-b4d01bd53c42\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (VideoQuality.HIGH) for: https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
-        },
-        {
-          "name": "Error - Unsupported Platform",
-          "originalRequest": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"url\": \"https://invalid-url.com/video\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/download",
-              "host": ["{{base_url}}"],
-              "path": ["download"]
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
             }
-          },
-          "status": "Bad Request",
-          "code": 400,
-          "header": [],
-          "body": "{\n    \"detail\": \"URL may not be from a supported platform. Supported platforms include YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and more.\"\n}"
+          ],
+          "body": "{\n    \"task_id\": \"40ecfc31-e838-4b9e-98c5-df7ad99801b7\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (720p) for: https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"expires_at\": \"2025-08-12T05:54:42.742824\",\n    \"created_at\": \"2025-08-12T00:54:42.742833\"\n}"
         }
       ]
     },
     {
-      "name": "Download Video - High Quality",
+      "name": "Download TikTok Video",
       "request": {
         "method": "POST",
         "header": [
@@ -182,18 +137,18 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"url\": \"https://youtu.be/dQw4w9WgXcQ\",\n    \"download_type\": \"single\",\n    \"quality\": \"1080p\"\n}"
+          "raw": "{\n    \"url\": \"https://www.tiktok.com/@tiktok/video/7501699941086154015\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/download",
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download a single video in high 1080p quality"
+        "description": "Download a video from TikTok"
       }
     },
     {
-      "name": "Download Playlist",
+      "name": "Download Instagram Video",
       "request": {
         "method": "POST",
         "header": [
@@ -204,86 +159,15 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"url\": \"https://www.youtube.com/playlist?list=PLrAXtmRdnEQy6nuLMV9gnUr6Y9QNFUpNf\",\n    \"download_type\": \"playlist\",\n    \"quality\": \"720p\"\n}"
+          "raw": "{\n    \"url\": \"https://www.instagram.com/reel/CvxewXyA_Xb/\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/download",
           "host": ["{{base_url}}"],
           "path": ["download"]
         },
-        "description": "Download entire playlist in 720p quality"
+        "description": "Download a video from Instagram (requires cookies)"
       }
-    },
-    {
-      "name": "Download Album",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"url\": \"https://www.youtube.com/playlist?list=OLAK5uy_kp7SEOTllYbKtjO_8Y_A1_Z9GhvQxc8C0\",\n    \"download_type\": \"album\",\n    \"quality\": \"720p\"\n}"
-        },
-        "url": {
-          "raw": "{{base_url}}/download",
-          "host": ["{{base_url}}"],
-          "path": ["download"]
-        },
-        "description": "Download album/music playlist in 720p quality"
-      }
-    },
-    {
-      "name": "Download Social Media Video",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"url\": \"https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
-        },
-        "url": {
-          "raw": "{{base_url}}/download",
-          "host": ["{{base_url}}"],
-          "path": ["download"]
-        },
-        "description": "Download a video from various supported platforms (YouTube, TikTok, Instagram, etc.) in 720p quality"
-      },
-      "response": [
-        {
-          "name": "Success - Social Media",
-          "originalRequest": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"url\": \"https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/download",
-              "host": ["{{base_url}}"],
-              "path": ["download"]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"task_id\": \"bcfeffc4-32b0-43ca-b120-78aa577f97c8\",\n    \"status\": \"initiated\",\n    \"message\": \"Single download initiated (VideoQuality.HIGH) for: https://www.tiktok.com/@3kittycatss/video/7519386934330936607?is_from_webapp=1&sender_device=pc\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null\n}"
-        }
-      ]
     },
     {
       "name": "Check Download Status",
@@ -295,70 +179,7 @@
           "host": ["{{base_url}}"],
           "path": ["status", "{{task_id}}"]
         },
-        "description": "Check the status of a download task. Use task_id from download response."
-      },
-      "response": [
-        {
-          "name": "Processing",
-          "originalRequest": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/status/{{task_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["status", "{{task_id}}"]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"processing\",\n    \"message\": \"Downloading video...\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"filename\": null,\n    \"total_files\": null,\n    \"completed_files\": null\n}"
-        },
-        {
-          "name": "Failed",
-          "originalRequest": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/status/{{task_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["status", "{{task_id}}"]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"task_id\": \"119d4738-1aa5-4090-81b8-016a43435bfd\",\n    \"status\": \"failed\",\n    \"message\": \"This video is private or unavailable. Please check if the video is publicly accessible.\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": null,\n    \"filename\": null,\n    \"total_files\": null,\n    \"completed_files\": null\n}"
-        },
-        {
-          "name": "Completed",
-          "originalRequest": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/status/{{task_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["status", "{{task_id}}"]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"task_id\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/download/f7cb9614-3628-4847-a9d6-adb51cbe7076\",\n    \"filename\": \"f7cb9614-3628-4847-a9d6-adb51cbe7076_Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster).mp4\",\n    \"total_files\": null,\n    \"completed_files\": null,\n    \"title\": \"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)\",\n    \"url\": \"https://rr3---sn-ab5sznly.googlevideo.com/videoplayback?expire=1754012202...\",\n    \"duration\": 213,\n    \"format\": \"mp4\",\n    \"thumbnail\": \"https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp\"\n}"
-        }
-      ]
-    },
-    {
-      "name": "List Log Files",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/logs",
-          "host": ["{{base_url}}"],
-          "path": ["logs"]
-        },
-        "description": "Get information about available log files"
+        "description": "Check the status of a download task"
       },
       "response": [
         {
@@ -367,108 +188,46 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/logs",
+              "raw": "{{base_url}}/status/{{task_id}}",
               "host": ["{{base_url}}"],
-              "path": ["logs"]
+              "path": ["status", "{{task_id}}"]
             }
           },
           "status": "OK",
           "code": 200,
-          "header": [],
-          "body": "{\n    \"logs_directory\": \"/app/logs\",\n    \"available_logs\": [\n        {\n            \"filename\": \"video_downloader.log\",\n            \"size_bytes\": 1024,\n            \"modified\": \"2025-08-04T16:35:56.134073\",\n            \"url\": \"/logs/video_downloader.log\"\n        },\n        {\n            \"filename\": \"errors.log\",\n            \"size_bytes\": 512,\n            \"modified\": \"2025-08-04T16:35:56.132073\",\n            \"url\": \"/logs/errors.log\"\n        }\n    ],\n    \"total_files\": 2\n}"
-        }
-      ]
-    },
-    {
-      "name": "View Main Log File",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/logs/video_downloader.log?lines=50",
-          "host": ["{{base_url}}"],
-          "path": ["logs", "video_downloader.log"],
-          "query": [
+          "header": [
             {
-              "key": "lines",
-              "value": "50",
-              "description": "Number of lines to retrieve from the end of the log file"
+              "key": "Content-Type",
+              "value": "application/json"
             }
-          ]
+          ],
+          "body": "{\n    \"task_id\": \"40ecfc31-e838-4b9e-98c5-df7ad99801b7\",\n    \"status\": \"completed\",\n    \"message\": \"Video downloaded successfully\",\n    \"download_type\": \"single\",\n    \"quality\": \"720p\",\n    \"download_url\": \"/api/v1/download/40ecfc31-e838-4b9e-98c5-df7ad99801b7\",\n    \"filename\": \"40ecfc31-e838-4b9e-98c5-df7ad99801b7_20250812_005442_Rick Astley - Never Gonna Give You Up.mp4\",\n    \"title\": \"Rick Astley - Never Gonna Give You Up\",\n    \"format\": \"mp4\",\n    \"thumbnail\": \"https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg\",\n    \"expires_at\": \"2025-08-12T05:54:42.742824\",\n    \"created_at\": \"2025-08-12T00:54:42.742833\"\n}"
         },
-        "description": "View the last N lines of the main application log file"
-      },
-      "response": [
         {
-          "name": "Success",
+          "name": "Not Found",
           "originalRequest": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/logs/video_downloader.log?lines=50",
+              "raw": "{{base_url}}/status/invalid-task-id",
               "host": ["{{base_url}}"],
-              "path": ["logs", "video_downloader.log"],
-              "query": [
-                {
-                  "key": "lines",
-                  "value": "50"
-                }
-              ]
+              "path": ["status", "invalid-task-id"]
             }
           },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"filename\": \"video_downloader.log\",\n    \"total_lines\": 43,\n    \"returned_lines\": 43,\n    \"requested_lines\": 50,\n    \"content\": \"2025-08-04 16:35:56,133 - video_downloader_api - INFO - [main.py:75] - === Video Downloader API v2.0.0 Starting ===\\n2025-08-04 16:35:56,133 - video_downloader_api - INFO - [main.py:76] - Logs directory: /app/logs\\n2025-08-04 16:35:56,134 - video_downloader_api - INFO - [main.py:77] - Downloads directory: /app/downloads\\n2025-08-04 16:37:05,704 - video_downloader_api - INFO - [main.py:298] - Starting download - Task ID: 8bcc75de-7c56-47a2-aadf-2c84c8956fb9, URL: https://www.youtube.com/watch?v=jNQXAC9IVRw, Quality: 360p, Type: single\\n\"}"
-        }
-      ]
-    },
-    {
-      "name": "View Error Log File",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/logs/errors.log?lines=20",
-          "host": ["{{base_url}}"],
-          "path": ["logs", "errors.log"],
-          "query": [
+          "status": "Not Found",
+          "code": 404,
+          "header": [
             {
-              "key": "lines",
-              "value": "20",
-              "description": "Number of lines to retrieve from the end of the log file"
+              "key": "Content-Type",
+              "value": "application/json"
             }
-          ]
-        },
-        "description": "View the last N lines of the error log file"
-      },
-      "response": [
-        {
-          "name": "Success",
-          "originalRequest": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/logs/errors.log?lines=20",
-              "host": ["{{base_url}}"],
-              "path": ["logs", "errors.log"],
-              "query": [
-                {
-                  "key": "lines",
-                  "value": "20"
-                }
-              ]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "header": [],
-          "body": "{\n    \"filename\": \"errors.log\",\n    \"total_lines\": 34,\n    \"returned_lines\": 20,\n    \"requested_lines\": 20,\n    \"content\": \"2025-08-04 16:37:07,549 - video_downloader_api - ERROR - [main.py:361] - Task 8bcc75de-7c56-47a2-aadf-2c84c8956fb9: yt-dlp extraction failed: ERROR: [youtube] jNQXAC9IVRw: Sign in to confirm you're not a bot...\\n\"}"
+          ],
+          "body": "{\n    \"detail\": \"Task not found\"\n}"
         }
       ]
     },
     {
-      "name": "Download Video File",
+      "name": "Download Completed Video",
       "request": {
         "method": "GET",
         "header": [],
@@ -477,33 +236,29 @@
           "host": ["{{base_url}}"],
           "path": ["download", "{{task_id}}"]
         },
-        "description": "Download the completed video file. Only works when status is 'completed'."
+        "description": "Download the completed video file"
       },
       "response": [
         {
-          "name": "Success - File Download",
+          "name": "Not Found",
           "originalRequest": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/download/{{task_id}}",
+              "raw": "{{base_url}}/download/invalid-task-id",
               "host": ["{{base_url}}"],
-              "path": ["download", "{{task_id}}"]
+              "path": ["download", "invalid-task-id"]
             }
           },
-          "status": "OK",
-          "code": 200,
+          "status": "Not Found",
+          "code": 404,
           "header": [
             {
-              "key": "content-type",
-              "value": "application/octet-stream"
-            },
-            {
-              "key": "content-disposition",
-              "value": "attachment; filename=\"video-title.mp4\""
+              "key": "Content-Type",
+              "value": "application/json"
             }
           ],
-          "body": "[Binary MP4 Video Data]"
+          "body": "{\n    \"detail\": \"File not found\"\n}"
         }
       ]
     }

@@ -2,47 +2,19 @@
 
 ## Overview
 
-The Video Downloader API is a FastAPI-based service that allows users to download videos from various platforms including YouTube, TikTok, Instagram, Twitter, Facebook, Vimeo, and more.
+The Video Downloader API is a FastAPI-based service that allows users to download videos from various platforms including YouTube, TikTok, Instagram, and Twitter. The service includes automatic file cleanup, status tracking, and download management.
 
 ## Base URL
 
 ```
-http://localhost:8888
+http://localhost:8888/api/v1
 ```
 
 ## API Endpoints
 
-### 1. Root Endpoint
+### 1. Health Check
 
-**GET** `/`
-
-Returns basic information about the API.
-
-**Response:**
-```json
-{
-  "message": "Video Downloader API",
-  "version": "2.1.0",
-  "features": [
-    "Timestamped downloads",
-    "Automatic cleanup after 5 hours",
-    "Enhanced error handling",
-    "Multiple platform support"
-  ],
-  "endpoints": {
-    "POST /api/v1/download": "Initiate video download",
-    "GET /api/v1/status/{task_id}": "Check download status",
-    "GET /api/v1/download/{task_id}": "Download completed video",
-    "GET /api/v1/cleanup": "Manually trigger cleanup",
-    "GET /api/v1/health": "Health check",
-    "GET /api/v1/logs": "View logs"
-  }
-}
-```
-
-### 2. Health Check
-
-**GET** `/api/v1/health`
+**GET** `/health`
 
 Returns the health status of the service.
 
@@ -52,15 +24,15 @@ Returns the health status of the service.
   "status": "healthy",
   "scheduler_status": "running",
   "downloads_directory_accessible": true,
-  "current_files_count": 0,
+  "current_files_count": 12,
   "cleanup_enabled": true,
   "version": "2.1.0"
 }
 ```
 
-### 3. Initiate Download
+### 2. Initiate Download
 
-**POST** `/api/v1/download`
+**POST** `/download`
 
 Initiates a video download from a supported platform.
 
@@ -75,193 +47,126 @@ Initiates a video download from a supported platform.
 
 **Parameters:**
 - `url` (required): The video URL to download
-- `download_type` (optional): Type of download (`single`, `playlist`, `album`). Default: `single`
-- `quality` (optional): Video quality (`360p`, `480p`, `720p`, `1080p`, `1440p`, `best`). Default: `720p`
+- `download_type` (optional): Type of download (`single`). Default: `single`
+- `quality` (optional): Video quality (`720p`, `1080p`, `best`). Default: `720p`
 
 **Response:**
 ```json
 {
-  "task_id": "b1d90808-e764-4d01-b76f-025e6279dc90",
+  "task_id": "40ecfc31-e838-4b9e-98c5-df7ad99801b7",
   "status": "initiated",
   "message": "Single download initiated (720p) for: https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "download_type": "single",
   "quality": "720p",
   "download_url": null,
-  "expires_at": "2025-08-07T01:21:30.068627"
+  "expires_at": "2025-08-12T05:54:42.742824",
+  "created_at": "2025-08-12T00:54:42.742833"
 }
 ```
 
-### 4. Check Download Status
+### 3. Check Download Status
 
-**GET** `/api/v1/status/{task_id}`
+**GET** `/status/{task_id}`
 
 Returns the current status of a download task.
 
 **Response:**
 ```json
 {
-  "task_id": "b1d90808-e764-4d01-b76f-025e6279dc90",
+  "task_id": "40ecfc31-e838-4b9e-98c5-df7ad99801b7",
   "status": "completed",
-  "message": "Video downloaded successfully: Rick Astley - Never Gonna Give You Up",
+  "message": "Video downloaded successfully",
   "download_type": "single",
   "quality": "720p",
-  "download_url": "/api/v1/download/b1d90808-e764-4d01-b76f-025e6279dc90",
-  "filename": "b1d90808-e764-4d01-b76f-025e6279dc90_20250806_202130_Rick Astley - Never Gonna Give You Up.mp4",
+  "download_url": "/api/v1/download/40ecfc31-e838-4b9e-98c5-df7ad99801b7",
+  "filename": "40ecfc31-e838-4b9e-98c5-df7ad99801b7_20250812_005442_Rick Astley - Never Gonna Give You Up.mp4",
   "title": "Rick Astley - Never Gonna Give You Up",
-  "duration": 213,
   "format": "mp4",
-  "thumbnail": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp",
-  "expires_at": "2025-08-07T01:22:19.134497",
-  "created_at": "2025-08-06T20:22:19.134498"
+  "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+  "expires_at": "2025-08-12T05:54:42.742824",
+  "created_at": "2025-08-12T00:54:42.742833"
 }
 ```
 
-### 5. Download File
+### 4. Download File
 
-**GET** `/api/v1/download/{task_id}`
+**GET** `/download/{task_id}`
 
 Downloads the completed video file.
 
-**Response:** Binary file download
+**Response:** 
+- Success: Video file download (video/mp4)
+- Error: Appropriate HTTP error status with message
 
-### 6. Manual Cleanup
+### Error Responses
 
-**GET** `/api/v1/cleanup`
-
-Manually triggers cleanup of old files.
-
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Cleanup completed successfully"
-}
-```
-
-### 7. View Logs
-
-**GET** `/api/v1/logs`
-
-Returns information about available log files.
-
-**Response:**
-```json
-{
-  "logs_directory": "/app/logs",
-  "available_logs": [
-    {
-      "filename": "video_downloader.log",
-      "size_bytes": 123602,
-      "modified": "2025-08-06T20:23:01.707221",
-      "url": "/api/v1/logs/video_downloader.log"
-    }
-  ],
-  "total_files": 1
-}
-```
-
-### 8. Get Log File Content
-
-**GET** `/api/v1/logs/{filename}?lines=100`
-
-Returns the content of a specific log file.
-
-**Parameters:**
-- `lines` (optional): Number of lines to return from the end of the file. Default: 100
-
-**Response:**
-```json
-{
-  "filename": "video_downloader.log",
-  "total_lines": 510,
-  "returned_lines": 100,
-  "requested_lines": 100,
-  "content": "..."
-}
-```
-
-## Error Responses
-
-### 400 Bad Request
+#### 400 Bad Request
 ```json
 {
   "detail": "Invalid URL format. Please check the URL and try again."
 }
 ```
 
-### 404 Not Found
+#### 404 Not Found
 ```json
 {
   "detail": "Task not found"
 }
 ```
 
-### 410 Gone
+#### 410 Gone
 ```json
 {
-  "detail": "File has been automatically deleted after 5 hours expiration period"
+  "detail": "Download has expired"
 }
 ```
 
-### 500 Internal Server Error
+#### 500 Internal Server Error
 ```json
 {
-  "detail": "An error occurred while processing your request."
+  "detail": "Failed to initiate download: {error message}"
 }
 ```
 
 ## Supported Platforms
 
-- YouTube (youtube.com, youtu.be)
-- TikTok (tiktok.com)
-- Instagram (instagram.com)
-- Twitter/X (twitter.com, x.com)
-- Facebook (facebook.com, fb.watch)
-- Vimeo (vimeo.com)
-- Dailymotion (dailymotion.com)
-- Twitch (twitch.tv)
+The API currently supports video downloads from:
+- YouTube (fully supported)
+- TikTok (requires cookies for some videos)
+- Instagram (requires authentication cookies)
+- Twitter (requires cookies for some videos)
 
-## Quality Options
+## File Management
 
-- `360p`: Low quality
-- `480p`: Medium quality
-- `720p`: High quality (default)
-- `1080p`: Very high quality
-- `1440p`: Ultra quality
-- `best`: Best available quality
+- Downloads expire after 5 hours
+- Automatic cleanup of expired files runs every 30 minutes
+- Files are stored with unique task IDs and timestamps
+- Downloads are processed in background tasks
 
-## Download Types
+## Docker Support
 
-- `single`: Download a single video
-- `playlist`: Download an entire playlist
-- `album`: Download an album (for music platforms)
+The API can be run using Docker with the following commands:
 
-## Rate Limits
+```bash
+# Build the Docker image
+make docker-build
 
-Currently, there are no rate limits implemented. However, it's recommended to:
+# Run the container
+make docker-run
 
-- Not exceed 10 concurrent downloads per user
-- Wait at least 1 second between requests
-- Respect the platform's terms of service
+# Stop the container
+make docker-stop
 
-## Authentication
+# Clean up Docker resources
+make docker-clean
+```
 
-Currently, the API does not require authentication. However, for production use, it's recommended to implement:
+## Cookie Management
 
-- API key authentication
-- Rate limiting
-- User quotas
-- Request logging
+Cookie files for various platforms should be placed in the `/cookies` directory:
+- `youtube.com_cookies.txt`
+- `instagram.com_cookies.txt`
+- `tiktok.com_cookies.txt`
+- `twitter.com_cookies.txt`
 
-## File Expiration
-
-Downloaded files are automatically deleted after 5 hours to conserve storage space. The cleanup process runs every 30 minutes.
-
-## Logging
-
-The API provides comprehensive logging:
-
-- `video_downloader.log`: General application logs
-- `errors.log`: Error-only logs
-
-Logs can be accessed via the `/api/v1/logs` endpoint. 
+Cookies are required for some platforms to access private or restricted content.

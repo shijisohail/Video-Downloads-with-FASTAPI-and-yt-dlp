@@ -5,3 +5,5 @@ echo "▶️ Starting cron as root"
 
 echo "🚀 Starting FastAPI as appuser"
 exec su appuser -c "python scripts/run_prod.py"
+
+

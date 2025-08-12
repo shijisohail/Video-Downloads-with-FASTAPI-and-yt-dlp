@@ -66,3 +66,5 @@ docker-clean:
 setup-dirs:
 	mkdir -p downloaded_videos/downloads downloaded_videos/fresh_downloads logs static cookies
 	chmod -R 755 downloaded_videos logs static cookies
+
+

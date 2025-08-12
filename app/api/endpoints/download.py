@@ -55,7 +55,7 @@ async def initiate_download(
         "expires_at": expiration_time.isoformat(),
         "created_at": creation_time.isoformat(),
     }
-    
+
     download_storage.set_status(task_id, status_data)
 
     # Start background download task
@@ -85,7 +85,7 @@ async def initiate_download(
 async def download_file(task_id: str):
     """Download the completed video file."""
     status_data = download_storage.get_status(task_id)
-    
+
     if not status_data:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -113,7 +113,8 @@ async def download_file(task_id: str):
 
     file_path = file_manager.get_download_path(filename)
     return FileResponse(
-        path=str(file_path), 
-        filename=filename, 
+        path=str(file_path),
+        filename=filename,
         media_type="application/octet-stream"
-    ) 
+    )
+

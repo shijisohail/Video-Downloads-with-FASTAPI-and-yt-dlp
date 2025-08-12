@@ -217,4 +217,4 @@ class DownloadService:
             "thumbnail": video_thumbnail,
             "expires_at": expiration_time.isoformat(),
             "created_at": creation_time.isoformat(),
-        }) 
+        })
