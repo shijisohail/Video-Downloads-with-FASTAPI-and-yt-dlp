@@ -5,7 +5,7 @@ Application configuration settings.
 import os
 from pathlib import Path
 from typing import Optional
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -48,4 +48,4 @@ settings = Settings()
 settings.DOWNLOADS_DIR.mkdir(exist_ok=True)
 settings.LOGS_DIR.mkdir(exist_ok=True)
 settings.STATIC_DIR.mkdir(exist_ok=True)
-settings.COOKIE_DIR.mkdir(exist_ok=True) 
+settings.COOKIE_DIR.mkdir(exist_ok=True)

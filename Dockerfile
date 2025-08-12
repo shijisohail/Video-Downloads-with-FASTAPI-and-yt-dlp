@@ -7,6 +7,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV TZ=UTC
+ENV APP_ENV=production
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -17,44 +18,34 @@ RUN apt-get update && apt-get install -y \
     cron \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome for cookie extraction (optional)
+# Install Chrome for cookie extraction
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy files
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ ./app/
-COPY config/ ./config/
-COPY scripts/ ./scripts/
+COPY . .
 
-# Copy cookie files (if they exist)
-COPY cookies/ ./cookies/
+# Create required directories with correct permissions
+RUN mkdir -p downloaded_videos/downloads downloaded_videos/fresh_downloads logs static cookies \
+    && chmod -R 755 downloaded_videos logs static cookies scripts
 
-# Create required directories
-RUN mkdir -p downloads logs static cookies \
-    && chmod 755 downloads logs static cookies
-
-# Make scripts executable
-RUN chmod +x scripts/*.py
-
-# Create non-root user
+# Create non-root user and set permissions
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && chown -R appuser:appuser /app
 
-# Setup cron job for cleanup (every 30 mins)
-RUN echo "*/30 * * * * cd /app && /usr/local/bin/python3 scripts/run_cleanup.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/cleanup-cron \
+# Setup cleanup cron job
+RUN echo "*/30 * * * * cd /app && /usr/local/bin/python3 scripts/run_cleanup.py >> /app/logs/cleanup.log 2>&1" > /etc/cron.d/cleanup-cron \
     && chmod 0644 /etc/cron.d/cleanup-cron \
     && crontab /etc/cron.d/cleanup-cron
 
-# Copy start script
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+RUN chmod +x start.sh
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -64,7 +55,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 EXPOSE 8888
 
 # Use volumes for persistent data
-VOLUME ["/app/downloads", "/app/logs"]
+VOLUME ["/app/downloaded_videos", "/app/logs"]
 
-# Start the app (cron as root, FastAPI as appuser)
+# Start the app
 CMD ["/app/start.sh"]
