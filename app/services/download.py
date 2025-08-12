@@ -247,9 +247,14 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
+                ("youtube_android_tv", self._get_youtube_android_tv_options()),
                 ("youtube_android", self._get_youtube_android_options()),
                 ("youtube_web", self._get_youtube_web_options()),
                 ("youtube_ios", self._get_youtube_ios_options()),
+                ("youtube_web_embedded", self._get_youtube_web_embedded_options()),
+                ("browser_cookies", self._get_browser_cookie_options(platform)),
+                ("youtube_age_bypass", self._get_youtube_age_bypass_options()),
+                ("generic_fallback", self._get_generic_options()),
             ])
         else:
             strategies.extend([
@@ -568,6 +573,51 @@ class DownloadService:
                 }
             },
             "user_agent": "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+        }
+    
+    def _get_youtube_android_tv_options(self) -> dict:
+        """YouTube Android TV client extraction options - often bypasses authentication (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_tv"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.tv.youtube/4.40.30 (Linux; U; Android 9; sm-t720; Build/PPR1.180610.011) gzip",
+        }
+    
+    def _get_youtube_web_embedded_options(self) -> dict:
+        """YouTube web embedded player options - bypasses some restrictions (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["web_embedded_player"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "http_headers": {
+                "Origin": "https://www.youtube.com",
+                "Referer": "https://www.youtube.com/",
+            },
+        }
+    
+    def _get_youtube_age_bypass_options(self) -> dict:
+        """YouTube age verification bypass options (2024)."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_embedded"],
+                    "player_skip": ["configs"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "age_limit": None,  # Remove age limit restriction
+            "http_headers": {
+                "X-YouTube-Client-Name": "3",
+                "X-YouTube-Client-Version": "17.31.35",
+            },
         }
     
     def _get_generic_options(self) -> dict:

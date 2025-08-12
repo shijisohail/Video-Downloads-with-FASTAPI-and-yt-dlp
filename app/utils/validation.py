@@ -96,6 +96,30 @@ def categorize_error(error_message: str) -> Dict[str, str]:
             "user_message": "YouTube video is unavailable. It may be private, deleted, or region-restricted.",
             "suggestion": "Check if the YouTube video exists and is publicly accessible.",
         }
+    elif "youtube" in error_lower and ("sign in" in error_lower or "confirm your age" in error_lower):
+        return {
+            "category": "YOUTUBE_AGE_VERIFICATION",
+            "user_message": "This YouTube video requires age verification or sign-in to access.",
+            "suggestion": "This video has age restrictions or privacy settings. The system will try alternative extraction methods.",
+        }
+    elif "youtube" in error_lower and "members-only" in error_lower:
+        return {
+            "category": "YOUTUBE_MEMBERS_ONLY",
+            "user_message": "This YouTube video is available to channel members only.",
+            "suggestion": "This content requires a YouTube channel membership to access.",
+        }
+    elif "youtube" in error_lower and ("premieres" in error_lower or "premiere" in error_lower):
+        return {
+            "category": "YOUTUBE_PREMIERE",
+            "user_message": "This YouTube video is scheduled as a premiere and not yet available.",
+            "suggestion": "Wait for the premiere to start or check the scheduled time.",
+        }
+    elif "youtube" in error_lower and "player_client" in error_lower:
+        return {
+            "category": "YOUTUBE_CLIENT_ERROR", 
+            "user_message": "YouTube client configuration error. Trying alternative methods.",
+            "suggestion": "The system is attempting different extraction strategies automatically.",
+        }
     # Browser cookie errors
     elif "secretstorage not available" in error_lower:
         return {
