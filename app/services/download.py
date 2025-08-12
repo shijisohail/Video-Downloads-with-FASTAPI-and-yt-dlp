@@ -296,7 +296,7 @@ class DownloadService:
                 # Most reliable strategies first - VR client often bypasses restrictions
                 ("youtube_android_vr_no_cookies", self._get_youtube_android_vr_no_cookies_options()),
                 ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
-                ("youtube_android_tv_no_cookies", self._get_youtube_android_tv_no_cookies_options()),
+                ("youtube_android_tv_no_cookies", self._get_youtube_no_cookies_android_tv_options()),
                 ("youtube_android_music_no_cookies", self._get_youtube_android_music_no_cookies_options()),
                 ("youtube_ios_music_no_cookies", self._get_youtube_ios_music_no_cookies_options()),
                 ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
