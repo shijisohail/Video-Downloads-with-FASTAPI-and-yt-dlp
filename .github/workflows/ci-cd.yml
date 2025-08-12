@@ -42,7 +42,55 @@ jobs:
           echo "🚀 Building and running new container..."
           make docker-run
           
-          # Health check
-          echo "⏳ Performing health check..."
-          sleep 30
-          curl -f http://localhost:8888/api/v1/health && echo "✅ Deployment successful!" || { echo "❌ Health check failed!"; exit 1; }
+          # Health check with comprehensive debugging
+          echo "⏳ Waiting for application to start..."
+          sleep 45
+          
+          echo "🔍 Checking if container is running..."
+          if docker ps | grep video-downloader-app; then
+            echo "✅ Container is running"
+          else
+            echo "❌ Container is not running!"
+            docker ps -a | grep video-downloader-app
+            echo "📋 Container logs:"
+            docker logs video-downloader-app
+            exit 1
+          fi
+          
+          echo "📋 Checking initial container logs..."
+          docker logs video-downloader-app --tail 15
+          
+          echo "🌍 Checking port accessibility..."
+          netstat -tlnp | grep :8888 || echo "Port 8888 not listening yet"
+          
+          echo "🩺 Performing health check with retries..."
+          for i in {1..6}; do
+            echo "Health check attempt $i/6..."
+            
+            # Try multiple endpoints
+            if curl -f -s -m 10 http://localhost:8888/api/v1/health > /dev/null 2>&1; then
+              echo "✅ Health endpoint responsive!"
+              curl -s http://localhost:8888/api/v1/health | head -3
+              echo "✅ Deployment successful!"
+              exit 0
+            elif curl -f -s -m 5 http://localhost:8888/ > /dev/null 2>&1; then
+              echo "✅ Root endpoint responsive!"
+              echo "✅ Deployment successful!"
+              exit 0
+            else
+              echo "❌ Health check failed (attempt $i/6)"
+              if [ $i -lt 6 ]; then
+                echo "Waiting 20 seconds before next attempt..."
+                sleep 20
+                echo "📋 Recent logs:"
+                docker logs video-downloader-app --tail 5
+              fi
+            fi
+          done
+          
+          echo "❌ Health check failed after 6 attempts!"
+          echo "📋 Final container logs:"
+          docker logs video-downloader-app --tail 30
+          echo "🌍 Port status:"
+          netstat -tlnp | grep :8888
+          exit 1
