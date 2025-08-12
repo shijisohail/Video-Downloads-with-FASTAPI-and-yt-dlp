@@ -293,28 +293,31 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # Most reliable strategies first - VR client often bypasses restrictions
+                # 2024 Priority: mweb with maximum bot-bypass features
+                ("youtube_mweb_anti_bot", self._get_youtube_mweb_anti_bot_options()),
+                ("youtube_mweb_bypass", self._get_youtube_mweb_bypass_options()),
+                
+                # Most reliable VR and specialized clients for 2024
+                ("youtube_android_vr_enhanced", self._get_youtube_android_vr_enhanced_options()),
+                ("youtube_android_testsuite_enhanced", self._get_youtube_android_testsuite_enhanced_options()),
+                ("youtube_android_tv_enhanced", self._get_youtube_android_tv_enhanced_options()),
+                ("youtube_android_music_enhanced", self._get_youtube_android_music_enhanced_options()),
+                
+                # Experimental 2024 bypass strategies
+                ("youtube_ios_safari_bypass", self._get_youtube_ios_safari_bypass_options()),
+                ("youtube_android_creator_bypass", self._get_youtube_android_creator_bypass_options()),
+                ("youtube_tvhtml5_embed_bypass", self._get_youtube_tvhtml5_embed_bypass_options()),
+                
+                # Original working strategies
                 ("youtube_android_vr_no_cookies", self._get_youtube_android_vr_no_cookies_options()),
                 ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
                 ("youtube_android_tv_no_cookies", self._get_youtube_no_cookies_android_tv_options()),
-                ("youtube_android_music_no_cookies", self._get_youtube_android_music_no_cookies_options()),
-                ("youtube_ios_music_no_cookies", self._get_youtube_ios_music_no_cookies_options()),
                 ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
-                ("youtube_web_embedded_no_cookies", self._get_youtube_web_embedded_no_cookies_options()),
                 
-                # Additional VR and specialized clients
+                # Final fallbacks
+                ("youtube_web_embedded_no_cookies", self._get_youtube_web_embedded_no_cookies_options()),
                 ("youtube_android_producer", self._get_youtube_android_producer_options()),
                 ("youtube_android_unplugged", self._get_youtube_android_unplugged_options()),
-                
-                # Fallback with potentially more permissive settings
-                ("youtube_android_creator", self._get_youtube_android_creator_options()),
-                ("youtube_web_creator", self._get_youtube_web_creator_options()),
-                ("youtube_tvhtml5_no_cookies", self._get_youtube_tvhtml5_no_cookies_options()),
-                
-                # Original strategies as final fallback
-                ("youtube_android_tv", self._get_youtube_android_tv_options()),
-                ("youtube_android", self._get_youtube_android_options()),
-                ("youtube_web", self._get_youtube_web_options()),
                 ("generic_fallback", self._get_generic_options()),
             ])
         else:
@@ -1136,6 +1139,205 @@ class DownloadService:
             "cookiefile": None,
             "no_cookies": True,
             "age_limit": None,
+        }
+    
+    # 2024 Enhanced Anti-Bot YouTube Strategies
+    def _get_youtube_mweb_anti_bot_options(self) -> dict:
+        """YouTube Mobile Web with maximum anti-bot features (2024 recommended)."""
+        return {
+            "extractor_args": {
+                "youtubetab": {"skip": ["webpage"]},
+                "youtube": {
+                    "player_client": ["mweb"],
+                    "player_skip": ["webpage", "configs", "js"],
+                    "skip": ["hls", "dash"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "geo_bypass": True,
+            "format": "worst[ext=mp4]/worst/best[ext=mp4]/best",
+            "prefer_insecure": True,
+        }
+    
+    def _get_youtube_mweb_bypass_options(self) -> dict:
+        """YouTube Mobile Web bypass with visitor data approach."""
+        return {
+            "extractor_args": {
+                "youtubetab": {"skip": ["webpage"]},
+                "youtube": {
+                    "player_client": ["mweb"],
+                    "player_skip": ["webpage", "configs"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Linux; Android 11; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "http_headers": {
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[height<=480]/best[height<=480]/worst/best",
+        }
+    
+    def _get_youtube_android_vr_enhanced_options(self) -> dict:
+        """Enhanced VR client with anti-detection features."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_vr"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.vr.oculus/1.2.28 (Linux; U; Android 7.1.2; en_US; Oculus Quest Build/NRD90M) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "28",
+                "X-YouTube-Client-Version": "1.2.28",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "geo_bypass": True,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+            "prefer_insecure": True,
+        }
+    
+    def _get_youtube_android_testsuite_enhanced_options(self) -> dict:
+        """Enhanced TestSuite client with maximum bypassing."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_testsuite"],
+                    "player_skip": ["configs", "webpage", "js"],
+                    "skip": ["hls", "dash"],
+                }
+            },
+            "user_agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "30",
+                "X-YouTube-Client-Version": "19.09.37",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "geo_bypass": True,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+            "prefer_insecure": True,
+            "socket_timeout": 30,
+        }
+    
+    def _get_youtube_android_tv_enhanced_options(self) -> dict:
+        """Enhanced Android TV client with bot bypass."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_tv"],
+                    "player_skip": ["configs", "webpage"],
+                }
+            },
+            "user_agent": "com.google.android.tv.youtube/4.40.30 (Linux; U; Android 9; en_US; sm-t720 Build/PPR1.180610.011) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "3",
+                "X-YouTube-Client-Version": "4.40.30",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+        }
+    
+    def _get_youtube_android_music_enhanced_options(self) -> dict:
+        """Enhanced Android Music client."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_music"],
+                    "player_skip": ["configs", "webpage"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.music/5.26.1 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "21",
+                "X-YouTube-Client-Version": "5.26.1",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+        }
+    
+    def _get_youtube_ios_safari_bypass_options(self) -> dict:
+        """iOS Safari bypass for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["ios"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "http_headers": {
+                "X-YouTube-Client-Name": "5",
+                "X-YouTube-Client-Version": "19.09.3",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+        }
+    
+    def _get_youtube_android_creator_bypass_options(self) -> dict:
+        """Android Creator bypass for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_creator"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "com.google.android.apps.youtube.creator/22.30.100 (Linux; U; Android 11; en_US) gzip",
+            "http_headers": {
+                "X-YouTube-Client-Name": "14",
+                "X-YouTube-Client-Version": "22.30.100",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
+        }
+    
+    def _get_youtube_tvhtml5_embed_bypass_options(self) -> dict:
+        """TV HTML5 embed bypass for 2024."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["tvhtml5_simply_embedded_player"],
+                    "player_skip": ["configs", "webpage", "js"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (SMART-TV; LINUX; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) 85.0.4183.93/6.0 TV Safari/537.36",
+            "http_headers": {
+                "X-YouTube-Client-Name": "85",
+                "X-YouTube-Client-Version": "2.0",
+            },
+            "cookiefile": None,
+            "no_cookies": True,
+            "age_limit": None,
+            "format": "worst[ext=mp4]/best[ext=mp4]/worst/best",
         }
     
     def _get_generic_options(self) -> dict:
