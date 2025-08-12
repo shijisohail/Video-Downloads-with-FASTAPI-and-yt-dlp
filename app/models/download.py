@@ -55,7 +55,7 @@ class DownloadStatus(BaseModel):
     completed_files: Optional[int] = None
     title: Optional[str] = None
     url: Optional[str] = None
-    duration: Optional[int] = None
+    duration: Optional[float] = None
     format: Optional[str] = None
     thumbnail: Optional[str] = None
     expires_at: Optional[str] = None

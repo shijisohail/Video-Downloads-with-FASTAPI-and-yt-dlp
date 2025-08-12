@@ -50,7 +50,61 @@ def categorize_error(error_message: str) -> Dict[str, str]:
     """Categorize error messages for better user feedback."""
     error_lower = error_message.lower()
 
-    if "private" in error_lower or "unavailable" in error_lower:
+    # Instagram specific errors
+    if "instagram sent an empty media response" in error_lower:
+        return {
+            "category": "INSTAGRAM_AUTH_ERROR",
+            "user_message": "Instagram requires authentication to access this content. Please provide fresh cookies or try again later.",
+            "suggestion": "This Instagram post may be private or require login. Try using browser cookies or a public post.",
+        }
+    elif "instagram" in error_lower and "unable to extract data" in error_lower:
+        return {
+            "category": "INSTAGRAM_EXTRACTION_ERROR",
+            "user_message": "Unable to extract Instagram content. The post may be private or deleted.",
+            "suggestion": "Ensure the Instagram URL is correct and the post is publicly accessible.",
+        }
+    # Facebook specific errors
+    elif "facebook" in error_lower and "cannot parse data" in error_lower:
+        return {
+            "category": "FACEBOOK_PARSE_ERROR",
+            "user_message": "Unable to parse Facebook video data. The video may be private or deleted.",
+            "suggestion": "Ensure the Facebook video is publicly accessible and the URL is correct.",
+        }
+    elif "facebook" in error_lower and "no video formats found" in error_lower:
+        return {
+            "category": "FACEBOOK_FORMAT_ERROR",
+            "user_message": "No downloadable video formats found on Facebook. The content may be protected.",
+            "suggestion": "This Facebook video may not be downloadable due to privacy settings.",
+        }
+    elif "unsupported url" in error_lower and "facebook" in error_lower:
+        return {
+            "category": "FACEBOOK_URL_ERROR",
+            "user_message": "This Facebook URL format is not supported. Please use a direct video URL.",
+            "suggestion": "Try using a direct Facebook video URL instead of a profile or page URL.",
+        }
+    # TikTok specific errors
+    elif "tiktok" in error_lower and "ip address is blocked" in error_lower:
+        return {
+            "category": "TIKTOK_BLOCKED",
+            "user_message": "TikTok has blocked access from your IP address. This is a temporary restriction.",
+            "suggestion": "TikTok may have rate-limited your IP. Try again later or use a different network.",
+        }
+    # YouTube specific errors
+    elif "youtube" in error_lower and "video unavailable" in error_lower:
+        return {
+            "category": "YOUTUBE_UNAVAILABLE",
+            "user_message": "YouTube video is unavailable. It may be private, deleted, or region-restricted.",
+            "suggestion": "Check if the YouTube video exists and is publicly accessible.",
+        }
+    # Browser cookie errors
+    elif "secretstorage not available" in error_lower:
+        return {
+            "category": "MISSING_DEPENDENCY",
+            "user_message": "Browser cookie extraction is not available. Using fallback method.",
+            "suggestion": "The system will try alternative extraction methods automatically.",
+        }
+    # General error patterns
+    elif "private" in error_lower or "unavailable" in error_lower:
         return {
             "category": "PRIVATE_VIDEO",
             "user_message": "This video is private or unavailable. Please check if the video is publicly accessible.",
@@ -109,4 +163,4 @@ def categorize_error(error_message: str) -> Dict[str, str]:
             "category": "GENERAL_ERROR",
             "user_message": "An error occurred while processing your request.",
             "suggestion": "Please try again later or contact support if the issue persists.",
-        } 
+        }

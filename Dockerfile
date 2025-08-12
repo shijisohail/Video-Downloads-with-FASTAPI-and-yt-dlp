@@ -8,18 +8,31 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV TZ=UTC
 ENV APP_ENV=production
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install system dependencies including those needed for secretstorage
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
     gnupg \
     curl \
     cron \
+    git \
+    build-essential \
+    pkg-config \
+    libdbus-1-dev \
+    libsecret-1-dev \
+    python3-dev \
+    python3-gi \
+    python3-gi-cairo \
+    gir1.2-secret-1 \
+    dbus-x11 \
+    xvfb \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome for cookie extraction
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+# Install Chrome for cookie extraction with updated key handling
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google.gpg \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
