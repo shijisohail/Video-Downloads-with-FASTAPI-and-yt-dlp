@@ -50,25 +50,48 @@ jobs:
           echo "📥 Pulling latest code..."
           git pull origin master
           
-          # Stop existing container
-          echo "🛑 Stopping container..."
-          docker stop video-api || echo "No container to stop"
-          docker rm video-api || echo "No container to remove"
+          # Stop any containers running on port 8888
+          echo "🚫 Stopping any containers using port 8888..."
+          PORT_CONTAINERS=$(docker ps --filter "publish=8888" -q)
+          if [ ! -z "$PORT_CONTAINERS" ]; then
+            echo "Found containers using port 8888: $PORT_CONTAINERS"
+            docker stop $PORT_CONTAINERS
+            docker rm $PORT_CONTAINERS
+          else
+            echo "No containers found using port 8888"
+          fi
           
-          # Build new image
-          echo "🔨 Building Docker image..."
-          docker build -t video-api .
+          # Stop and remove existing containers completely
+          echo "🛑 Stopping and removing existing containers by name..."
+          docker stop video-downloader-app || echo "No video-downloader-app container to stop"
+          docker rm video-downloader-app || echo "No video-downloader-app container to remove"
+          docker stop video-api || echo "No video-api container to stop"
+          docker rm video-api || echo "No video-api container to remove"
           
-          # Run new container
-          echo "🚀 Starting container..."
+          # Remove existing images
+          echo "🗑️ Removing existing images..."
+          docker rmi video-downloader || echo "No video-downloader image to remove"
+          docker rmi video-api || echo "No video-api image to remove"
+          
+          # Clean up all stopped containers and dangling images
+          echo "🧹 Cleaning up Docker resources..."
+          docker container prune -f
+          docker image prune -f
+          
+          # Build fresh Docker image
+          echo "🔨 Building fresh Docker image..."
+          docker build -t video-downloader . --no-cache
+          
+          # Run new container with proper configuration
+          echo "🚀 Starting new container..."
           docker run -d \
-            --name video-api \
+            --name video-downloader-app \
             --restart unless-stopped \
             -p 8888:8888 \
             -v $(pwd)/downloaded_videos:/app/downloaded_videos \
             -v $(pwd)/logs:/app/logs \
             -v $(pwd)/cookies:/app/cookies \
-            video-api
+            video-downloader
           
           # Wait and check
           echo "⏳ Waiting for app to start..."
