@@ -84,7 +84,7 @@ class DownloadService:
             })
             logger.error(f"Task {task_id}: Download failed with error: {str(e)}")
 
-    def _configure_ydl_options(self, filename_template: str, format_string: str, platform: str) -> dict:
+    def _configure_ydl_options(self, filename_template: str, format_string: str, platform: str, force_no_cookies: bool = False) -> dict:
         """Configure yt-dlp options."""
         ydl_opts = {
             "outtmpl": str(self.downloads_dir / filename_template),
@@ -120,10 +120,14 @@ class DownloadService:
             "default_search": "auto",
         }
 
-        # Add cookies if available
-        cookie_file = self._get_cookie_file(platform)
-        if cookie_file:
-            ydl_opts["cookiefile"] = str(cookie_file)
+        # Only add cookies if not forcing no cookies and cookies are valid
+        if not force_no_cookies:
+            cookie_file = self._get_cookie_file(platform)
+            if cookie_file:
+                ydl_opts["cookiefile"] = str(cookie_file)
+                logger.info(f"Using valid cookie file for {platform}: {cookie_file}")
+            else:
+                logger.info(f"No valid cookie file found for {platform}, proceeding without cookies")
 
         return ydl_opts
 
@@ -238,6 +242,10 @@ class DownloadService:
                 # Merge strategy-specific options with base options
                 final_opts = {**ydl_opts, **strategy_opts}
                 
+                # If strategy explicitly sets no_cookies or cookiefile=None, remove any cookiefile from base options
+                if strategy_opts.get("no_cookies") or strategy_opts.get("cookiefile") is None:
+                    final_opts.pop("cookiefile", None)
+                
                 with yt_dlp.YoutubeDL(final_opts) as ydl:
                     if download_type == "single":
                         info = ydl.extract_info(url, download=True)
@@ -285,7 +293,10 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # Cookie-free strategies first
+                # Modern 2024 strategies first (yt-dlp recommended)
+                ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
+                
+                # Cookie-free strategies
                 ("youtube_no_cookies_android_tv", self._get_youtube_no_cookies_android_tv_options()),
                 ("youtube_no_cookies_testsuite", self._get_youtube_no_cookies_testsuite_options()),
                 ("youtube_no_cookies_music", self._get_youtube_no_cookies_music_options()),
@@ -900,6 +911,40 @@ class DownloadService:
             # Explicitly disable cookies
             "cookiefile": None,
             "no_cookies": True,
+        }
+    
+    def _get_youtube_mweb_no_cookies_options(self) -> dict:
+        """YouTube Mobile Web client - yt-dlp 2024 recommended for PO Token era."""
+        return {
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["mweb"],
+                    "player_skip": ["configs", "js"],
+                }
+            },
+            "user_agent": "Mozilla/5.0 (Linux; Android 11; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "http_headers": {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+                "Sec-Ch-Ua-Mobile": "?1",
+                "Sec-Ch-Ua-Platform": '"Android"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1",
+            },
+            # Explicitly disable cookies - CRITICAL for 2024
+            "cookiefile": None,
+            "no_cookies": True,
+            "format": "best[ext=mp4]/mp4/best",
+            # Additional mobile web optimizations
+            "age_limit": None,
+            "geo_bypass": True,
         }
     
     def _get_generic_options(self) -> dict:
