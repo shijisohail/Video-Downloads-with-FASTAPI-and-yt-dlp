@@ -48,6 +48,7 @@ docker-build:
 	$(DOCKER) build -t $(APP_NAME) .
 
 docker-run:
+	$(MAKE) docker-build
 	$(DOCKER) run -d \
 		-p $(PORT):$(PORT) \
 		-v $(PWD)/downloaded_videos:/app/downloaded_videos \
@@ -61,7 +62,7 @@ docker-stop:
 
 docker-clean:
 	make docker-stop
-	$(DOCKER) rmi $(APP_NAME) || true
+	$(DOCKER) rm $(APP_NAME) || true
 
 setup-dirs:
 	mkdir -p downloaded_videos/downloads downloaded_videos/fresh_downloads logs static cookies
