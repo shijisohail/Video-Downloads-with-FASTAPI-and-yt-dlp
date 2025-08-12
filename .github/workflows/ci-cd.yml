@@ -38,6 +38,16 @@ jobs:
           make docker-stop
           make docker-clean
           
+          # Ensure directories exist and have correct permissions
+          echo "📁 Setting up directories and permissions..."
+          make setup-dirs
+          
+          # Set ownership for Docker container user (UID 999 = appuser)
+          sudo chown -R 999:999 downloaded_videos logs cookies 2>/dev/null || {
+            echo "Setting permissions as current user instead..."
+            chmod -R 777 downloaded_videos logs cookies
+          }
+          
           # Build and run new container using Makefile
           echo "🚀 Building and running new container..."
           make docker-run
