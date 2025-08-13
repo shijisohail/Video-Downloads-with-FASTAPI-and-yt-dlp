@@ -57,6 +57,9 @@ class DownloadService:
             platform_info = validate_url_platform(url)
             platform = platform_info.get("platform", "unknown")
 
+            # Preprocess URL for platform-specific fallbacks (e.g., Instagram ddinstagram)
+            url = self._preprocess_url(url, platform)
+
             # Configure yt-dlp options
             ydl_opts = self._configure_ydl_options(
                 filename_template, format_string, platform
@@ -106,7 +109,7 @@ class DownloadService:
             "retry_sleep_functions": {"http": lambda n: min(3 ** n, 60)},
             "geo_bypass": True,
             "geo_bypass_country": "US",
-            "age_limit": 21,
+            "age_limit": None,  # Allow age-restricted content via alternate clients
             "http_headers": self._get_http_headers(platform),
             "socket_timeout": settings.SOCKET_TIMEOUT,
             "nocheckcertificate": True,
@@ -171,6 +174,26 @@ class DownloadService:
             })
 
         return base_headers
+
+    def _preprocess_url(self, url: str, platform: str) -> str:
+        """Apply platform-specific URL rewrites/fallbacks before extraction.
+        For Instagram without cookies, try ddinstagram mirror which serves public content without login.
+        """
+        try:
+            if platform == "instagram":
+                cookie_file = self._get_cookie_file(platform)
+                if not cookie_file:
+                    # Rewrite Instagram domain to ddinstagram as a fallback for public reels/posts
+                    if "instagram.com" in url:
+                        rewritten = url.replace("://www.instagram.com", "://ddinstagram.com").replace(
+                            "://instagram.com", "://ddinstagram.com"
+                        )
+                        if rewritten != url:
+                            logger.info(f"Rewrote Instagram URL for no-cookie fallback: {rewritten}")
+                            return rewritten
+            return url
+        except Exception:
+            return url
 
     def _get_cookie_file(self, platform: str) -> Path:
         """Get cookie file for platform if valid, otherwise return None."""
@@ -295,36 +318,22 @@ class DownloadService:
             ])
         elif platform == "youtube":
             strategies.extend([
-                # Prioritize cookie-enabled strategies to leverage server cookies
+                # Strongest no-cookie strategies first for age-restricted/public content
+                ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
+                ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
+                ("youtube_no_cookies_embedded", self._get_youtube_no_cookies_embedded_options()),
+                ("youtube_no_cookies_music", self._get_youtube_no_cookies_music_options()),
+                ("youtube_no_cookies_android_tv", self._get_youtube_no_cookies_android_tv_options()),
+
+                # Cookie-enabled (if valid cookies exist)
                 ("youtube_web_with_cookies", self._get_youtube_web_with_cookies_options()),
                 ("youtube_android_with_cookies", self._get_youtube_android_with_cookies_options()),
                 ("youtube_mweb_with_cookies", self._get_youtube_mweb_with_cookies_options()),
 
-                # 2024 Priority: mweb with maximum bot-bypass features (no cookies)
-                ("youtube_mweb_anti_bot", self._get_youtube_mweb_anti_bot_options()),
-                ("youtube_mweb_bypass", self._get_youtube_mweb_bypass_options()),
-                
-                # Most reliable VR and specialized clients for 2024 (no cookies)
-                ("youtube_android_vr_enhanced", self._get_youtube_android_vr_enhanced_options()),
-                ("youtube_android_testsuite_enhanced", self._get_youtube_android_testsuite_enhanced_options()),
-                ("youtube_android_tv_enhanced", self._get_youtube_android_tv_enhanced_options()),
-                ("youtube_android_music_enhanced", self._get_youtube_android_music_enhanced_options()),
-                
-                # Experimental 2024 bypass strategies (no cookies)
-                ("youtube_ios_safari_bypass", self._get_youtube_ios_safari_bypass_options()),
-                ("youtube_android_creator_bypass", self._get_youtube_android_creator_bypass_options()),
-                ("youtube_tvhtml5_embed_bypass", self._get_youtube_tvhtml5_embed_bypass_options()),
-                
-                # Original no-cookie strategies
-                ("youtube_android_vr_no_cookies", self._get_youtube_android_vr_no_cookies_options()),
-                ("youtube_android_testsuite_no_cookies", self._get_youtube_android_testsuite_no_cookies_options()),
-                ("youtube_android_tv_no_cookies", self._get_youtube_no_cookies_android_tv_options()),
-                ("youtube_mweb_no_cookies", self._get_youtube_mweb_no_cookies_options()),
-                
-                # Final fallbacks
-                ("youtube_web_embedded_no_cookies", self._get_youtube_web_embedded_no_cookies_options()),
-                ("youtube_android_producer", self._get_youtube_android_producer_options()),
-                ("youtube_android_unplugged", self._get_youtube_android_unplugged_options()),
+                # Additional fallbacks
+                ("youtube_web_embedded", self._get_youtube_web_embedded_options()),
+                ("youtube_unrestricted", self._get_youtube_unrestricted_options()),
+                ("youtube_age_bypass", self._get_youtube_age_bypass_options()),
                 ("generic_fallback", self._get_generic_options()),
             ])
         else:
