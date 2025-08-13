@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import logging
 
-from app.api.endpoints import download, status, health, logs, cleanup
+from app.api.endpoints import download, status, health, logs, cleanup, cookies
 from app.core.scheduler import scheduler
 from app.core.config import settings
 from config.logging import setup_logging
@@ -32,6 +32,7 @@ app.include_router(status.router, prefix="/api/v1", tags=["status"])
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(logs.router, prefix="/api/v1", tags=["logs"])
 app.include_router(cleanup.router, prefix="/api/v1", tags=["cleanup"])
+app.include_router(cookies.router, prefix="/api/v1", tags=["cookies"])
 
 @app.on_event("startup")
 async def startup_event():
