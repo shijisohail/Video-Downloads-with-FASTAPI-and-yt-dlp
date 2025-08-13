@@ -2,15 +2,15 @@
 # http://curl.haxx.se/rfc/cookie_spec.html
 # This is a generated file!  Do not edit.
 
-.instagram.com	TRUE	/	TRUE	1789660433	csrftoken	8UhJRkWR_WDcKJIpy7Dyd-
+.instagram.com	TRUE	/	TRUE	1789662513	csrftoken	8UhJRkWR_WDcKJIpy7Dyd-
 .instagram.com	TRUE	/	TRUE	1788891149	mid	aJD4CgALAAHhB9HrZrBcTUvR1uzR
 .instagram.com	TRUE	/	TRUE	1788891150	datr	CviQaCcRruKWMtUO1gG3kT4Q
 .instagram.com	TRUE	/	TRUE	1785867156	ig_did	440E754A-0E0C-4316-B79F-934836B703DB
 .instagram.com	TRUE	/	TRUE	1785867156	ig_nrcb	1
-.instagram.com	TRUE	/	TRUE	1762876433	ds_user_id	76585376908
+.instagram.com	TRUE	/	TRUE	1762878513	ds_user_id	76585376908
 .instagram.com	TRUE	/	TRUE	1789660069	ps_l	1
 .instagram.com	TRUE	/	TRUE	1789660069	ps_n	1
 .instagram.com	TRUE	/	TRUE	1755705217	wd	1258x660
 .instagram.com	TRUE	/	TRUE	1755705217	dpr	1.5
 .instagram.com	TRUE	/	TRUE	1786636075	sessionid	76585376908%3AU274ee0uLoOBij%3A28%3AAYf6b9ZfjpQT-diiYkVghEXCoaJYK-7zLghTiCpljw
-.instagram.com	TRUE	/	TRUE	0	rur	"LLA\05476585376908\0541786636434:01feea72a64f1c9424861d49ed5a8a91f7bddb0c372c389c0907244372b294f3a5c61078"
+.instagram.com	TRUE	/	TRUE	0	rur	"LLA\05476585376908\0541786638514:01fe2533c11a1ebc847e8ffd74b46ec5e1e99ea8eecb0c69873a9d39e073897d60158ed4"
